@@ -28,7 +28,8 @@ function steps (n, memo = []) {
   return memo[n]
 }
 
-console.log(steps(3))
-console.log(steps(4))
-console.log(steps(5))
-console.log(steps(100))
+// Tests
+// console.log(steps(3))
+// console.log(steps(4))
+// console.log(steps(5))
+// console.log(steps(100))
