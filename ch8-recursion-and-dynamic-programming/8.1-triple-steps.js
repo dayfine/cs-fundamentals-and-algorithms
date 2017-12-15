@@ -1,11 +1,13 @@
 /*
   Function Signature
-  > function steps(integer n, array memo) = integer combination-of-steps
+    function steps(integer n, array memo) = integer combination-of-steps
  */
 
 /*
   Assumptions
-    Non-polynomial
+    Non-polynomial run-time
+*/
+
 /*
   Test cases:
     3 => 4 (1-1-1, 2-1, 1-2, 3)
