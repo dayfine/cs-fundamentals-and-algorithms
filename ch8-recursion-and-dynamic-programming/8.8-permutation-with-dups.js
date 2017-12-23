@@ -26,11 +26,7 @@ function permu (string) {
     for (let i = 0; i < chars.length; i++) {
       let _chars = chars.slice()
       _chars.splice(i, 1)
-      build(_chars, partial + chars[i])
-      if (chars[i] === chars[i + 1]) {
-        i++
-        continue
-      }
+      if (chars[i] !== chars[i - 1]) build(_chars, partial + chars[i])
     }
   }
 
