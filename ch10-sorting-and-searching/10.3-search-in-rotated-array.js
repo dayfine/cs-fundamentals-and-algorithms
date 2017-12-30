@@ -73,7 +73,7 @@ function bsi (arr, num) {
     if (num < arr[midpoint]) {
       end = midpoint
     } else if (num > arr[midpoint]) {
-      start = midpoint
+      start = midpoint + 1
     } else {
       return midpoint
     }
