@@ -22,6 +22,8 @@ def roll_dice(num_rolls, dice=six_sided):
     assert type(num_rolls) == int, 'num_rolls must be an integer.'
     assert num_rolls > 0, 'Must roll at least once.'
     "*** YOUR CODE HERE ***"
+    results = [ dice() for i in range(num_rolls) ]
+    return 1 if 1 in results else sum(results)
 
 
 def take_turn(num_rolls, opponent_score, dice=six_sided):
@@ -36,6 +38,8 @@ def take_turn(num_rolls, opponent_score, dice=six_sided):
     assert num_rolls <= 10, 'Cannot roll more than 10 dice.'
     assert opponent_score < 100, 'The game should be over.'
     "*** YOUR CODE HERE ***"
+    max_digit = max(map(int, str(opponent_score)))
+    return max_digit + 1 if num_rolls == 0 else roll_dice(num_rolls, dice)
 
 # Playing a game
 
@@ -51,6 +55,7 @@ def select_dice(score, opponent_score):
     True
     """
     "*** YOUR CODE HERE ***"
+    return four_sided if (score + opponent_score) % 7 == 0 else six_sided
 
 def other(who):
     """Return the other player, for a player WHO numbered 0 or 1.
@@ -76,7 +81,25 @@ def play(strategy0, strategy1, goal=GOAL_SCORE):
     who = 0  # Which player is about to take a turn, 0 (first) or 1 (second)
     score, opponent_score = 0, 0
     "*** YOUR CODE HERE ***"
-    return score, opponent_score  # You may wish to change this line.
+    curr_player = who
+
+    while True:
+        num_rolls = strategy0(score, opponent_score)
+        dice = select_dice(score, opponent_score)
+        score += take_turn(num_rolls, opponent_score, dice)
+
+        if score >= goal:
+            if current_player = who:
+                return score, opponent_score
+            else:
+                return opponent_score, score
+
+        # swap players
+        curr_player = other(who)
+        strategy0, strategy1 = strategy1, strategy0
+        score, opponent_score = opponent_score, score
+
+    # return score, opponent_score  # You may wish to change this line.
 
 #######################
 # Phase 2: Strategies #
