@@ -88,18 +88,23 @@ def play(strategy0, strategy1, goal=GOAL_SCORE):
         dice = select_dice(score, opponent_score)
         score += take_turn(num_rolls, opponent_score, dice)
 
+        # print(curr_player, num_rolls, '|', score, opponent_score)
         if score >= goal:
-            if current_player = who:
+            if curr_player == who:
                 return score, opponent_score
             else:
                 return opponent_score, score
 
         # swap players
-        curr_player = other(who)
+        curr_player = other(curr_player)
         strategy0, strategy1 = strategy1, strategy0
         score, opponent_score = opponent_score, score
 
-    # return score, opponent_score  # You may wish to change this line.
+        # swine swap
+        if score/2 == opponent_score or opponent_score/2 == score:
+            score, opponent_score = opponent_score, score
+
+
 
 #######################
 # Phase 2: Strategies #
@@ -129,7 +134,7 @@ def always_roll(n):
 
 # Experiments
 
-def make_averaged(fn, num_samples=1000):
+def make_averaged(fn, num_samples=30):
     """Return a function that returns the average_value of FN when called.
 
     To implement this function, you will have to use *args syntax, a new Python
@@ -148,6 +153,9 @@ def make_averaged(fn, num_samples=1000):
     Thus, the average value is 6.0.
     """
     "*** YOUR CODE HERE ***"
+    def run_and_average(*args):
+        return sum([fn(*args) for _ in range(num_samples)]) / num_samples
+    return run_and_average
 
 def max_scoring_num_rolls(dice=six_sided):
     """Return the number of dice (1 to 10) that gives the highest average turn
@@ -169,6 +177,13 @@ def max_scoring_num_rolls(dice=six_sided):
     10
     """
     "*** YOUR CODE HERE ***"
+    best, best_num = 0, None
+    for i in range(1, 11):
+        curr = make_averaged(roll_dice)(i, dice)
+        if curr > best:
+            best, best_num = curr, i
+        # print("{} dice scores {} on average".format(i, curr))
+    return (best_num, best)
 
 def winner(strategy0, strategy1):
     """Return 0 if strategy0 wins against strategy1, and 1 otherwise."""
@@ -186,7 +201,7 @@ def average_win_rate(strategy, baseline=always_roll(BASELINE_NUM_ROLLS)):
 
 def run_experiments():
     """Run a series of strategy experiments and report results."""
-    if True: # Change to False when done finding max_scoring_num_rolls
+    if False: # Change to False when done finding max_scoring_num_rolls
         six_sided_max = max_scoring_num_rolls(six_sided)
         print('Max scoring num rolls for six-sided dice:', six_sided_max)
         four_sided_max = max_scoring_num_rolls(four_sided)
@@ -195,13 +210,13 @@ def run_experiments():
     if False: # Change to True to test always_roll(8)
         print('always_roll(8) win rate:', average_win_rate(always_roll(8)))
 
-    if False: # Change to True to test bacon_strategy
+    if True: # Change to True to test bacon_strategy
         print('bacon_strategy win rate:', average_win_rate(bacon_strategy))
 
-    if False: # Change to True to test swap_strategy
+    if True: # Change to True to test swap_strategy
         print('swap_strategy win rate:', average_win_rate(swap_strategy))
 
-    if False: # Change to True to test final_strategy
+    if True: # Change to True to test final_strategy
         print('final_strategy win rate:', average_win_rate(final_strategy))
 
     "*** You may add additional experiments as you wish ***"
@@ -220,7 +235,10 @@ def bacon_strategy(score, opponent_score):
     0
     """
     "*** YOUR CODE HERE ***"
-    return 5 # Replace this statement
+    max_digit = max(map(int, str(opponent_score)))
+    dice = select_dice(score, opponent_score)
+    best_num_to_roll, best_score = max_scoring_num_rolls(dice)
+    return 0 if max_digit >= best_score else best_num_to_roll
 
 def swap_strategy(score, opponent_score):
     """This strategy rolls 0 dice when it would result in a beneficial swap and
@@ -238,16 +256,47 @@ def swap_strategy(score, opponent_score):
     5
     """
     "*** YOUR CODE HERE ***"
-    return 5 # Replace this statement
+    max_digit = max(map(int, str(opponent_score)))
+    next_score = score + max_digit + 1
+    if score == 0:
+        return bacon_strategy(score, opponent_score)
+    elif next_score == opponent_score / 2:
+        return 0
+    elif next_score == opponent_score * 2:
+        return BASELINE_NUM_ROLLS
+    else:
+        return bacon_strategy(score, opponent_score)
 
 def final_strategy(score, opponent_score):
     """Write a brief description of your final strategy.
 
-    *** YOUR DESCRIPTION HERE ***
+    For six-sided, always roll no more than six.
+    For four-sided, always roll one, or zero.
+    Roll zero according to bacon/swap rules
+    Roll zero if can get to 100 next.
+    Use 3.5 as expected value for six-sided and only roll necessary num of dices
+    Not implemented: Avoid rolling zero if it can result a four-side by
+        opponent baconning next turn
     """
     "*** YOUR CODE HERE ***"
-    return 5 # Replace this statement
+    max_digit = max(map(int, str(opponent_score)))
+    dice = select_dice(score, opponent_score)
+    best_num_to_roll, best_score = max_scoring_num_rolls(dice)
+    next_score = score + max_digit + 1
+    next_bacon = 1 + max(map(int, str(next_score)))
 
+    if next_score >=100:
+        return 0
+    if score == 0:
+        return 0 if max_digit >=7 else 6
+    if (next_score == opponent_score / 2 or
+        (next_score + opponent_score) % 7 == 0 or
+        max_digit+1>=best_score):
+        return 0
+    if dice == four_sided:
+        return 1
+
+    return int(min(6, max(1, (100 - score)//3.5)))
 
 ##########################
 # Command Line Interface #
