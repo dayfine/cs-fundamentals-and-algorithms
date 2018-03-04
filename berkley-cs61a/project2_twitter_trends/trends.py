@@ -13,7 +13,6 @@ from ucb import main, trace, interact, log_current_line
 ###################################
 
 # The tweet abstract data type, implemented as a dictionary.
-
 def make_tweet(text, time, lat, lon):
     """Return a tweet, represented as a Python dictionary.
 
@@ -37,18 +36,18 @@ def make_tweet(text, time, lat, lon):
 
 def tweet_text(tweet):
     """Return a string, the words in the text of a tweet."""
-    "*** YOUR CODE HERE ***"
+    return tweet['text']
 
 def tweet_time(tweet):
     """Return the datetime representing when a tweet was posted."""
-    "*** YOUR CODE HERE ***"
+    return tweet['time']
 
 def tweet_location(tweet):
     """Return a position representing a tweet's location."""
-    "*** YOUR CODE HERE ***"
+    return make_position(tweet['latitude'], tweet['longitude'])
+
 
 # The tweet abstract data type, implemented as a function.
-
 def make_tweet_fn(text, time, lat, lon):
     """An alternate implementation of make_tweet: a tweet is a function.
 
@@ -60,8 +59,19 @@ def make_tweet_fn(text, time, lat, lon):
     >>> latitude(tweet_location_fn(t))
     38
     """
-    "*** YOUR CODE HERE ***"
-    # Please don't call make_tweet in your solution
+    def tweet(key):
+        if key == 'text':
+            return text
+        elif key == 'time':
+            return time
+        elif key == 'lat':
+            return lat
+        elif key == 'lon':
+            return lon
+
+        raise KeyError('Invalid input for key.')
+
+    return tweet
 
 def tweet_text_fn(tweet):
     """Return a string, the words in the text of a functional tweet."""
@@ -75,8 +85,8 @@ def tweet_location_fn(tweet):
     """Return a position representing a functional tweet's location."""
     return make_position(tweet('lat'), tweet('lon'))
 
-### === +++ ABSTRACTION BARRIER +++ === ###
 
+### === +++ ABSTRACTION BARRIER +++ === ###
 def tweet_words(tweet):
     """Return the words in a tweet."""
     return extract_words(tweet_text(tweet))

@@ -23,7 +23,7 @@ def test_all(project_name, tests=TESTS):
     for test in tests:
         underline('Test {0}'.format(test.name))
         try:
-            failure = test.fn()
+            failure = test.fn(None)
         except Exception as inst:
             traceback.print_exc()
             failure = True
@@ -54,13 +54,20 @@ def timed(func, timeout, args=(), kwargs={}):
             Thread.__init__(self)
             self.daemon = True
             self.result = None
+            self.error = None
         def run(self):
-            self.result = func(*args, **kwargs)
+            try:
+                self.result = func(*args, **kwargs)
+            except Exception as e:
+                e._message = traceback.format_exc(limit=2)
+                self.error = e
     submission = ReturningThread()
     submission.start()
     submission.join(timeout)
     if submission.is_alive():
         raise TimeoutError("Evaluation timed out!")
+    if submission.error is not None:
+        raise submission.error
     return submission.result
 
 def check_func(func, tests,
@@ -76,13 +83,13 @@ def check_func(func, tests,
     for input, output, *desc in tests:
         try:
             val = test_eval(func, input)
-        except:
+        except Exception as e:
             fail_msg = "Function {0} failed".format(func.__name__)
             if desc:
                 print(fail_msg, desc[0])
             else:
                 print(fail_msg, "with input", in_print(input))
-            traceback.print_exception(*sys.exc_info(), limit=2)
+            print(e._message)
             code += 1
             continue
         if not comp(val, output):
