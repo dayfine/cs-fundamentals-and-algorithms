@@ -1,4 +1,5 @@
 """Visualizing Twitter Sentiment Across America"""
+import re
 
 from data import word_sentiments, load_tweets
 from datetime import datetime
@@ -112,7 +113,7 @@ def extract_words(text):
     ['cat', 'on', 'my', 'keyboard']
     """
     "*** YOUR CODE HERE ***"
-    return text.split()  # Replace this line
+    return re.findall(r'[a-zA-Z]+', text) # Replace this line
 
 def make_sentiment(value):
     """Return a sentiment, which represents a value that may not exist.
