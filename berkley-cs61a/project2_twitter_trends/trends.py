@@ -47,7 +47,6 @@ def tweet_location(tweet):
     """Return a position representing a tweet's location."""
     return make_position(tweet['latitude'], tweet['longitude'])
 
-
 # The tweet abstract data type, implemented as a function.
 def make_tweet_fn(text, time, lat, lon):
     """An alternate implementation of make_tweet: a tweet is a function.
@@ -85,7 +84,6 @@ def tweet_time_fn(tweet):
 def tweet_location_fn(tweet):
     """Return a position representing a functional tweet's location."""
     return make_position(tweet('lat'), tweet('lon'))
-
 
 ### === +++ ABSTRACTION BARRIER +++ === ###
 def tweet_words(tweet):
@@ -213,7 +211,23 @@ def find_centroid(polygon):
     >>> tuple(map(float, find_centroid([p1, p2, p1])))  # A zero-area polygon
     (1.0, 2.0, 0.0)
     """
-    "*** YOUR CODE HERE ***"
+    Area = 0
+    for i in range(len(polygon)-1):
+        lat1, lon1 = latitude(polygon[i]), longitude(polygon[i])
+        lat2, lon2 = latitude(polygon[i+1]), longitude(polygon[i+1])
+        Area += .5 * (lat1*lon2 - lat2*lon1)
+
+    center_lat, center_lon = 0, 0
+    if Area == 0:
+        return (latitude(polygon[0]), longitude(polygon[0]), 0)
+
+    for i in range(len(polygon)-1):
+        lat1, lon1 = latitude(polygon[i]), longitude(polygon[i])
+        lat2, lon2 = latitude(polygon[i+1]), longitude(polygon[i+1])
+        center_lat += (lat1 + lat2) * (lat1*lon2 - lat2*lon1) / (6*Area)
+        center_lon += (lon1 + lon2) * (lat1*lon2 - lat2*lon1) / (6*Area)
+
+    return (center_lat, center_lon, abs(Area))
 
 def find_state_center(polygons):
     """Compute the geographic center of a state, averaged over its polygons.
@@ -236,7 +250,15 @@ def find_state_center(polygons):
     >>> round(longitude(hi), 5)
     -156.21763
     """
-    "*** YOUR CODE HERE ***"
+    centers = [find_centroid(p) for p in polygons]
+
+    weighted_lat = weighted_lon = total_areas = 0
+    for lat, lon, area in centers:
+        weighted_lat += lat * area
+        weighted_lon += lon * area
+        total_areas += area
+
+    return make_position(weighted_lat/total_areas, weighted_lon/total_areas)
 
 
 ###################################
