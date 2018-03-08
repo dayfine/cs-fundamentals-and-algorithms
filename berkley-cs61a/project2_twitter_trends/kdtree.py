@@ -33,34 +33,40 @@ class KdTree():
     def nearest_neigbour(self, point):
         best_pt, best_sq_dist = None, float('inf')
 
-        def nns(node, point, best_pt, best_sq_dist):
+        def square_dist(pos1, pos2):
+            """Assuming position only has two dimensions"""
+            return (pos1[0]-pos2[0])**2 + (pos1[1]-pos2[1])**2
+
+        def nns(node, point):
             if node is None:
                 return
-            print(node, node.left, node.right)
-            if node.left is None and node.right is None:
-                sq_dist = square_dist(point, node.location)
-                if sq_dist < best_sq_dist:
-                    best_pt, best_sq_dist = point, sq_dist
-                    return best_pt
+
+            sq_dist = square_dist(point, node.location)
+            nonlocal best_pt
+            nonlocal best_sq_dist
+            if sq_dist < best_sq_dist:
+                best_pt, best_sq_dist = node.location, sq_dist
 
             axis = node.axis
             left_first = point[axis] <= node.location[axis]
 
             if left_first:
                 if point[axis] - best_sq_dist <= node.location[axis]:
-                    if node.left is not None:
-                        nns(node.left, point, best_pt, best_sq_dist)
+                    nns(node.left, point)
                 elif point[axis] + best_sq_dist >= node.location[axis]:
-                    nns(node.right, point, best_pt, best_sq_dist)
+                    nns(node.right, point)
             else:
                 if point[axis] + best_sq_dist >= node.location[axis]:
-                    nns(node.right, point, best_pt, best_sq_dist)
+                    nns(node.right, point)
                 elif point[axis] - best_sq_dist <= node.location[axis]:
-                    nns(node.left, point, best_pt, best_sq_dist)
-        return nns(self, point, best_pt, best_sq_dist)
+                    nns(node.left, point)
+
+        nns(self, point)
+        neigbour = namedtuple('Neighbour', ['location', 'distance'])
+        return neigbour(best_pt, best_sq_dist**.5)
 
 point_list = [(2,3), (5,4), (9,6), (4,7), (8,1), (7,2)]
 kd_tree = KdTree(point_list)
 print(kd_tree)
-# print(kd_tree.nearest_neigbour([7.5, 1.6]))
+print(kd_tree.nearest_neigbour([7.5, 1.4]).distance)
 
