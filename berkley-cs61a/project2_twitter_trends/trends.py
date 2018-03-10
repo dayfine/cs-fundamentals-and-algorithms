@@ -320,7 +320,14 @@ def average_sentiments(tweets_by_state):
     tweets_by_state -- A dictionary from state names to lists of tweets
     """
     averaged_state_sentiments = {}
-    "*** YOUR CODE HERE ***"
+
+    for state, tweets in tweets_by_state.items():
+        sentiments = [analyze_tweet_sentiment(tweet) for tweet in tweets]
+        sentiment_vals = [sentiment_value(s) for s in sentiments if has_sentiment(s)]
+        if not sentiment_vals:
+            continue
+        averaged_state_sentiments[state] = sum(sentiment_vals)/len(sentiment_vals)
+
     return averaged_state_sentiments
 
 
