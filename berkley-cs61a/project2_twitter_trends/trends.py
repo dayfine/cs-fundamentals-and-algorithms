@@ -7,6 +7,7 @@ from geo import us_states, geo_distance, make_position, longitude, latitude
 from maps import draw_state, draw_name, draw_dot, wait
 from string import ascii_letters
 from ucb import main, trace, interact, log_current_line
+from kdtree import KdTree
 
 
 ###################################
@@ -284,8 +285,26 @@ def group_tweets_by_state(tweets):
     >>> tweet_string(california_tweets[0])
     '"welcome to san francisco" @ (38, -122)'
     """
+    center_state_dict = {}
+    centers = []
+
+    for state, polygons in us_states.items():
+        center = find_state_center(polygons)
+        centers.append(center)
+        center_state_dict[center] = state
+
+    state_centers = KdTree(centers)
     tweets_by_state = {}
-    "*** YOUR CODE HERE ***"
+
+    for tweet in tweets:
+        location = tweet_location(tweet)
+        nearest_state_center = state_centers.nearest_neigbour(location).location
+        nearest_state = center_state_dict[nearest_state_center]
+
+        if nearest_state not in tweets_by_state:
+            tweets_by_state[nearest_state] = []
+        tweets_by_state[nearest_state].append(tweet)
+
     return tweets_by_state
 
 def average_sentiments(tweets_by_state):

@@ -53,20 +53,20 @@ class KdTree():
             if left_first:
                 if point[axis] - best_sq_dist <= node.location[axis]:
                     nns(node.left, point)
-                elif point[axis] + best_sq_dist >= node.location[axis]:
+                if point[axis] + best_sq_dist >= node.location[axis]:
                     nns(node.right, point)
             else:
                 if point[axis] + best_sq_dist >= node.location[axis]:
                     nns(node.right, point)
-                elif point[axis] - best_sq_dist <= node.location[axis]:
+                if point[axis] - best_sq_dist <= node.location[axis]:
                     nns(node.left, point)
 
         nns(self, point)
         neigbour = namedtuple('Neighbour', ['location', 'distance'])
         return neigbour(best_pt, best_sq_dist**.5)
 
-point_list = [(2,3), (5,4), (9,6), (4,7), (8,1), (7,2)]
-kd_tree = KdTree(point_list)
-print(kd_tree)
-print(kd_tree.nearest_neigbour([7.5, 1.4]).distance)
+# point_list = [(2,3), (5,4), (9,6), (4,7), (8,1), (7,2)]
+# kd_tree = KdTree(point_list)
+# print(kd_tree)
+# print(kd_tree.nearest_neigbour([7.5, 1.4]).distance)
 
