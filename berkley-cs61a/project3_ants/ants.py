@@ -182,6 +182,8 @@ class ThrowerAnt(Ant):
     implemented = True
     damage = 1
     food_cost = 4
+    min_range = 0
+    max_range = 10
 
     def nearest_bee(self, hive):
         """Return the nearest Bee in a Place that is not the Hive, connected to
@@ -192,13 +194,11 @@ class ThrowerAnt(Ant):
         Problem B5: This method returns None if there is no Bee in range.
         """
 
-        curr_place = self.place
-        if curr_place is hive:
-            return None
-
-        while curr_place:
-            if curr_place.bees:
+        curr_place, curr_rng = self.place, 0
+        while curr_place and curr_place is not hive and curr_rng <= self.max_range:
+            if curr_rng >= self.min_range and curr_place.bees:
                 return random_or_none(curr_place.bees)
+            curr_rng += 1
             curr_place = curr_place.entrance
         else:
             return None
@@ -474,16 +474,10 @@ class FireAnt(Ant):
     food_cost = 4
 
     def reduce_armor(self, amount):
-        print(self.armor, amount)
         self.armor -= amount
-        if self.armor <=0:
-            bees = self.place.bees
-            new_bees = deepcopy(bees)
-
-            for new_bee in new_bees:
-                new_bee.reduce_armor(self.damage)
-
-            self.place.bees = new_bees
+        if self.armor <= 0:
+            for i in reversed(range(len(self.place.bees))):
+                self.place.bees[i].reduce_armor(self.damage)
 
             print('{0} ran out of armor and expired'.format(self))
             self.place.remove_insect(self)
@@ -493,16 +487,19 @@ class LongThrower(ThrowerAnt):
     """A ThrowerAnt that only throws leaves at Bees at least 4 places away."""
 
     name = 'Long'
-    "*** YOUR CODE HERE ***"
-    implemented = False
+    implemented = True
+    min_range = 4
+    food_cost = 3
 
 
 class ShortThrower(ThrowerAnt):
     """A ThrowerAnt that only throws leaves at Bees within 3 places."""
 
     name = 'Short'
-    "*** YOUR CODE HERE ***"
-    implemented = False
+    implemented = True
+    min_range = 0
+    max_range = 2
+    food_cost = 3
 
 
 class WallAnt(Ant):
