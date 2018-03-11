@@ -68,12 +68,12 @@ class Place:
 
 class Insect:
     """An Insect, the base class of Ant and Bee, has armor and a Place."""
+    watersafe = False
 
     def __init__(self, armor, place=None):
         """Create an Insect with an armor amount and a starting Place."""
         self.armor = armor
         self.place = place  # set by Place.add_insect and Place.remove_insect
-        self.watersafe = False
 
     def reduce_armor(self, amount):
         """Reduce armor by amount, and remove the insect from its place if it
@@ -108,10 +108,7 @@ class Bee(Insect):
     """A Bee moves from place to place, following exits and stinging ants."""
 
     name = 'Bee'
-
-    def __init__(self, armor, place=None):
-        super().__init__(armor, place)
-        self.watersafe = True
+    watersafe = True
 
     def sting(self, ant):
         """Attack an Ant, reducing the Ant's armor by 1."""
@@ -125,8 +122,7 @@ class Bee(Insect):
     def blocked(self):
         """Return True if this Bee cannot advance to the next Place."""
         # Phase 2: Special handling for NinjaAnt
-        "*** YOUR CODE HERE ***"
-        return self.place.ant is not None
+        return self.place.ant is not None and self.place.ant.blocks_path
 
     def action(self, colony):
         """A Bee's action stings the Ant that blocks its exit if it is blocked,
@@ -147,6 +143,7 @@ class Ant(Insect):
     implemented = False  # Only implemented Ant classes should be instantiated
     damage = 0
     food_cost = 0
+    blocks_path = True
 
     def __init__(self, armor=1):
         """Create an Ant with an armor quantity."""
@@ -506,12 +503,11 @@ class WallAnt(Ant):
     """WallAnt is an Ant which has a large amount of armor."""
 
     name = 'Wall'
-    "*** YOUR CODE HERE ***"
+    food_cost = 4
     implemented = False
 
     def __init__(self):
-        "*** YOUR CODE HERE ***"
-        Ant.__init__(self)
+        Ant.__init__(self, armor=4)
 
 
 class NinjaAnt(Ant):
@@ -519,20 +515,23 @@ class NinjaAnt(Ant):
     all Bees in the exact same Place."""
 
     name = 'Ninja'
-    "*** YOUR CODE HERE ***"
-    implemented = False
+    blocks_path = False
+    implemented = True
+    damage = 1
+    food_cost = 6
 
     def action(self, colony):
-        "*** YOUR CODE HERE ***"
+        for i in reversed(range(len(self.place.bees))):
+            self.place.bees[i].reduce_armor(self.damage)
 
 
 class ScubaThrower(ThrowerAnt):
     """ScubaThrower is a ThrowerAnt which is watersafe."""
 
     name = 'Scuba'
-    "*** YOUR CODE HERE ***"
-    implemented = False
-
+    food_cost = 5
+    implemented = True
+    watersafe = True
 
 class HungryAnt(Ant):
     """HungryAnt will take three "turns" to eat a Bee in the same space as it.
