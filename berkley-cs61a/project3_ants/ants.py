@@ -31,7 +31,7 @@ class Place:
         self.entrance = None  # A Place
         # Phase 1: Add an entrance to the exit
         if self.exit is not None:
-            self.entrance = self.exit.entrance
+            self.exit.entrance = self
 
     def add_insect(self, insect):
         """Add an Insect to this Place.
@@ -108,7 +108,10 @@ class Bee(Insect):
     """A Bee moves from place to place, following exits and stinging ants."""
 
     name = 'Bee'
-    watersafe = True
+
+    def __init__(self, armor, place=None):
+        super().__init__(armor, place)
+        self.watersafe = True
 
     def sting(self, ant):
         """Attack an Ant, reducing the Ant's armor by 1."""
@@ -188,8 +191,17 @@ class ThrowerAnt(Ant):
 
         Problem B5: This method returns None if there is no Bee in range.
         """
-        "*** YOUR CODE HERE ***"
-        return random_or_none(self.place.bees)
+
+        curr_place = self.place
+        if curr_place is hive:
+            return None
+
+        while curr_place:
+            if curr_place.bees:
+                return random_or_none(curr_place.bees)
+            curr_place = curr_place.entrance
+        else:
+            return None
 
     def throw_at(self, target):
         """Throw a leaf at the target Bee, reducing its armor."""
