@@ -8,6 +8,7 @@ import sys
 from ucb import main, interact, trace
 from collections import OrderedDict
 from copy import deepcopy
+from itertools import chain
 
 
 ################
@@ -64,6 +65,10 @@ class Place:
             self.bees.remove(insect)
         else:
             assert self.ant == insect, '{0} is not in {1}'.format(insect, self)
+            # cannot remove queen
+            if getattr(insect, 'is_queen', False):
+                return
+
             if getattr(self.ant, 'ant', None) is not None:
                 self.ant = self.ant.ant
             else:
@@ -154,6 +159,7 @@ class Ant(Insect):
     food_cost = 0
     blocks_path = True
     container = False
+    damage_doubled = False
 
     def __init__(self, armor=1):
         """Create an Ant with an armor quantity."""
@@ -597,27 +603,62 @@ class QueenPlace:
     (2) The place in which the QueenAnt resides.
     """
     def __init__(self, colony_queen, ant_queen):
-        "*** YOUR CODE HERE ***"
+        self.places = [colony_queen, ant_queen]
 
     @property
     def bees(self):
-        "*** YOUR CODE HERE ***"
+        bees = []
+        for p in self.places:
+            bees += p.bees
+        return bees
 
 class QueenAnt(ScubaThrower):
     """The Queen of the colony.  The game is over if a bee enters her place."""
 
     name = 'Queen'
-    "*** YOUR CODE HERE ***"
-    implemented = False
+    food_cost = 6
+    implemented = True
+    created = False
 
     def __init__(self):
         ScubaThrower.__init__(self, 1)
-        "*** YOUR CODE HERE ***"
+        if QueenAnt.created:
+            self.is_queen = False
+        else:
+            QueenAnt.created = True
+            self.is_queen = True
 
     def action(self, colony):
         """A queen ant throws a leaf, but also doubles the damage of ants
         in her tunnel.  Impostor queens do only one thing: die."""
-        "*** YOUR CODE HERE ***"
+        if not self.is_queen:
+            self.reduce_armor(self.armor)
+            return
+
+        ScubaThrower.action(self, colony)
+        colony.queen = QueenPlace(colony.queen, self.place)
+
+        def double_damage(ant):
+            if ant is self:
+                return
+            if ant is not None and not ant.damage_doubled:
+                ant.damage *= 2
+                ant.damage_doubled = True
+
+        curr_place = self.place
+        while curr_place is not None:
+            double_damage(curr_place.ant)
+            double_damage(getattr(curr_place.ant, 'ant', None))
+
+            curr_place = curr_place.entrance
+
+        curr_place = self.place
+        while curr_place is not None:
+            double_damage(curr_place.ant)
+            double_damage(getattr(curr_place.ant, 'ant', None))
+
+            curr_place = curr_place.exit
+
 
 class AntRemover(Ant):
     """Allows the player to remove ants from the board in the GUI."""
