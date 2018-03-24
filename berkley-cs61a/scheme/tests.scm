@@ -56,8 +56,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Move the following (exit) line to run additional tests. ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(exit)
-
 
 ;;; 1.1.2
 
@@ -77,7 +75,7 @@ size
 (define circumference (* 2 pi radius))
 circumference
 ; expect 62.8318
-
+(exit)
 ;;; 1.1.4
 
 (define (square x) (* x x))

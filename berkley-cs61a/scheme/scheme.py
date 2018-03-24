@@ -6,6 +6,21 @@ from scheme_primitives import *
 from scheme_reader import *
 from ucb import main, trace
 
+
+def flatten(array):
+    if array is nil:
+        return nil
+
+    ret = [array.first]
+    second = array.second
+    while isinstance(second, Pair):
+        ret.append(second.first)
+        second = second.second
+    if second is not nil:
+        raise TypeError("length attempted on improper list")
+    return ret
+
+
 ##############
 # Eval/Apply #
 ##############
@@ -65,6 +80,7 @@ def scheme_apply(procedure, args, env):
     else:
         raise SchemeError("Cannot call {0}".format(str(procedure)))
 
+
 def apply_primitive(procedure, args, env):
     """Apply PrimitiveProcedure PROCEDURE to a Scheme list of ARGS in ENV.
 
@@ -74,8 +90,7 @@ def apply_primitive(procedure, args, env):
     >>> apply_primitive(plus, twos, env)
     4
     """
-    fn = procedure.fn
-    arguments = args.flatten()
+    fn, arguments = procedure.fn, flatten(args)
     try:
         return fn(*args, env) if procedure.use_env else fn(*args)
     except TypeError:
@@ -137,6 +152,7 @@ class Frame:
         """Define Scheme symbol SYM to have value VAL in SELF."""
         self.bindings[sym] = val
 
+
 class LambdaProcedure:
     """A procedure defined by a lambda expression or the complex define form."""
 
@@ -156,6 +172,7 @@ class LambdaProcedure:
     def __repr__(self):
         args = (self.formals, self.body, self.env)
         return "LambdaProcedure({0}, {1}, {2})".format(*(repr(a) for a in args))
+
 
 class MuProcedure:
     """A procedure defined by a mu expression, which has dynamic scope.
@@ -192,9 +209,12 @@ class MuProcedure:
 def do_lambda_form(vals, env):
     """Evaluate a lambda form with parameters VALS in environment ENV."""
     check_form(vals, 2)
-    formals = vals[0]
+    formals, body = vals.first, vals.second
     check_formals(formals)
-    "*** YOUR CODE HERE ***"
+    if len(body) != 1:
+        body = Pair('begin', body)
+    return LambdaProcedure(formals, body, env)
+
 
 def do_mu_form(vals):
     """Evaluate a mu form with parameters VALS."""
@@ -203,22 +223,29 @@ def do_mu_form(vals):
     check_formals(formals)
     "*** YOUR CODE HERE ***"
 
+
 def do_define_form(vals, env):
     """Evaluate a define form with parameters VALS in environment ENV."""
     check_form(vals, 2)
-    target = vals[0]
+    target, rest = vals.first, vals.second
     if scheme_symbolp(target):
         check_form(vals, 2, 2)
-        "*** YOUR CODE HERE ***"
+        value = scheme_eval(rest, env)
+        env.define(target, value)
+        return target
     elif isinstance(target, Pair):
-        "*** YOUR CODE HERE ***"
+        symbol, formals = target.first, target.second
+        function = do_lambda_form(Pair(formals, rest), env)
+        env.define(symbol, function)
+        return symbol
     else:
         raise SchemeError("bad argument to define")
+
 
 def do_quote_form(vals):
     """Evaluate a quote form with parameters VALS."""
     check_form(vals, 1, 1)
-    "*** YOUR CODE HERE ***"
+    return vals.first
 
 
 def do_let_form(vals, env):
@@ -250,9 +277,11 @@ def do_if_form(vals, env):
     check_form(vals, 2, 3)
     "*** YOUR CODE HERE ***"
 
+
 def do_and_form(vals, env):
     """Evaluate short-circuited and with parameters VALS in environment ENV."""
     "*** YOUR CODE HERE ***"
+
 
 def quote(value):
     """Return a Scheme expression quoting the Scheme VALUE.
@@ -265,9 +294,11 @@ def quote(value):
     """
     return Pair("quote", Pair(value, nil))
 
+
 def do_or_form(vals, env):
     """Evaluate short-circuited or with parameters VALS in environment ENV."""
     "*** YOUR CODE HERE ***"
+
 
 def do_cond_form(vals, env):
     """Evaluate cond form with parameters VALS in environment ENV."""
@@ -286,10 +317,22 @@ def do_cond_form(vals, env):
             "*** YOUR CODE HERE ***"
     return okay
 
+
 def do_begin_form(vals, env):
     """Evaluate begin form with parameters VALS in environment ENV."""
     check_form(vals, 1)
-    "*** YOUR CODE HERE ***"
+    if vals is nil:
+        return nil
+    first, second = vals.first, vals.second
+    result = scheme_eval(first, env)
+
+    while second is not nil:
+        result = scheme_eval(second.first, env)
+        second = second.second
+    # Returns a quoted value, as scheme_eval calls itself in the returned value
+    # when evaluating one of the LOGIC FORM below
+    return quote(result)
+
 
 LOGIC_FORMS = {
         "and": do_and_form,
@@ -299,8 +342,8 @@ LOGIC_FORMS = {
         "begin": do_begin_form,
         }
 
-# Utility methods for checking the structure of Scheme programs
 
+# Utility methods for checking the structure of Scheme programs
 def check_form(expr, min, max = None):
     """Check EXPR (default SELF.expr) is a proper list whose length is
     at least MIN and no more than MAX (default: no maximum). Raises
@@ -313,6 +356,7 @@ def check_form(expr, min, max = None):
     elif max is not None and length > max:
         raise SchemeError("too many operands in form")
 
+
 def check_formals(formals):
     """Check that FORMALS is a valid parameter list, a Scheme list of symbols
     in which each symbol is distinct. Raise a SchemeError if the list of formals
@@ -321,6 +365,7 @@ def check_formals(formals):
     >>> check_formals(read_line("(a b c)"))
     """
     "*** YOUR CODE HERE ***"
+
 
 ##################
 # Tail Recursion #
@@ -420,6 +465,7 @@ def scheme_load(*args):
     read_eval_print_loop(next_line, env.global_frame(), quiet=quiet)
     return okay
 
+
 def scheme_open(filename):
     """If either FILENAME or FILENAME.scm is the name of a valid file,
     return a Python file opened to it. Otherwise, raise an error."""
@@ -433,6 +479,7 @@ def scheme_open(filename):
     except IOError as exc:
         raise SchemeError(str(exc))
 
+
 def create_global_frame():
     """Initialize and return a single-frame environment with built-in names."""
     env = Frame(None)
@@ -441,6 +488,7 @@ def create_global_frame():
     env.define("load", PrimitiveProcedure(scheme_load, True))
     add_primitives(env)
     return env
+
 
 @main
 def run(*argv):
