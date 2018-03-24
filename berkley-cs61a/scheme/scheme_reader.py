@@ -89,6 +89,16 @@ class Pair:
         else:
             raise TypeError("ill-formed list")
 
+    def flatten(self):
+        ret = [self.first]
+        second = self.second
+        while isinstance(second, Pair):
+            ret.append(second.first)
+            second = second.second
+        if second is not nil:
+            raise TypeError("length attempted on improper list")
+        return ret
+
 class nil:
     """The empty list"""
 

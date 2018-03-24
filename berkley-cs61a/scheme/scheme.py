@@ -74,7 +74,13 @@ def apply_primitive(procedure, args, env):
     >>> apply_primitive(plus, twos, env)
     4
     """
-    "*** YOUR CODE HERE ***"
+    fn = procedure.fn
+    arguments = args.flatten()
+    try:
+        return fn(*args, env) if procedure.use_env else fn(*args)
+    except TypeError:
+        raise SchemeError('argument types are wrong')
+
 
 ################
 # Environments #
@@ -97,7 +103,11 @@ class Frame:
 
     def lookup(self, symbol):
         """Return the value bound to SYMBOL.  Errors if SYMBOL is not found."""
-        "*** YOUR CODE HERE ***"
+        current_frame = self
+        while current_frame is not None:
+            if symbol in current_frame.bindings:
+                return current_frame.bindings[symbol]
+            current_frame = current_frame.parent
         raise SchemeError("unknown identifier: {0}".format(str(symbol)))
 
 
