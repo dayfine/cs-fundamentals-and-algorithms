@@ -75,7 +75,7 @@ size
 (define circumference (* 2 pi radius))
 circumference
 ; expect 62.8318
-(exit)
+
 ;;; 1.1.4
 
 (define (square x) (* x x))
@@ -102,7 +102,7 @@ circumference
   (sum-of-squares (+ a 1) (* a 2)))
 (f 5)
 ; expect 136
-
+(exit)
 ;;; 1.1.6
 
 (define (abs x)

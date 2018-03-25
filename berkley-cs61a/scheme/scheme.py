@@ -71,10 +71,15 @@ def scheme_eval(expr, env):
 
 def scheme_apply(procedure, args, env):
     """Apply Scheme PROCEDURE to argument values ARGS in environment ENV."""
+    print('apply what????')
+    print(procedure, args, env)
+    print(isinstance(procedure, PrimitiveProcedure))
     if isinstance(procedure, PrimitiveProcedure):
         return apply_primitive(procedure, args, env)
     elif isinstance(procedure, LambdaProcedure):
-        "*** YOUR CODE HERE ***"
+        local_frame = env.make_call_frame(procedure.formals, args)
+        result = scheme_eval(procedure.body, local_frame)
+        return result
     elif isinstance(procedure, MuProcedure):
         "*** YOUR CODE HERE ***"
     else:
@@ -145,7 +150,12 @@ class Frame:
         <{a: 1, b: 2, c: 3} -> <Global Frame>>
         """
         frame = Frame(self)
-        "*** YOUR CODE HERE ***"
+        formals, vals = flatten(formals), flatten(vals)
+        if len(formals) != len(vals):
+            raise SchemeError('Number of arguments received is different from formals')
+
+        for idx, formal in enumerate(formals):
+            frame.define(formal, vals[idx])
         return frame
 
     def define(self, sym, val):
@@ -211,7 +221,9 @@ def do_lambda_form(vals, env):
     check_form(vals, 2)
     formals, body = vals.first, vals.second
     check_formals(formals)
-    if len(body) != 1:
+    if len(body) == 1:
+        body = body.first
+    else:
         body = Pair('begin', body)
     return LambdaProcedure(formals, body, env)
 
@@ -230,12 +242,13 @@ def do_define_form(vals, env):
     target, rest = vals.first, vals.second
     if scheme_symbolp(target):
         check_form(vals, 2, 2)
-        value = scheme_eval(rest, env)
+        value = scheme_eval(vals[1], env)
         env.define(target, value)
         return target
     elif isinstance(target, Pair):
         symbol, formals = target.first, target.second
         function = do_lambda_form(Pair(formals, rest), env)
+        print(symbol, function)
         env.define(symbol, function)
         return symbol
     else:
@@ -335,12 +348,12 @@ def do_begin_form(vals, env):
 
 
 LOGIC_FORMS = {
-        "and": do_and_form,
-        "or": do_or_form,
-        "if": do_if_form,
-        "cond": do_cond_form,
-        "begin": do_begin_form,
-        }
+    "and": do_and_form,
+    "or": do_or_form,
+    "if": do_if_form,
+    "cond": do_cond_form,
+    "begin": do_begin_form,
+}
 
 
 # Utility methods for checking the structure of Scheme programs
@@ -364,8 +377,13 @@ def check_formals(formals):
 
     >>> check_formals(read_line("(a b c)"))
     """
-    "*** YOUR CODE HERE ***"
-
+    if not scheme_listp(formals):
+        raise SchemeError("Not well formatted formals list: " + str(formals))
+    formals = flatten(formals)
+    if not all([scheme_symbolp(f) for f in formals]):
+        raise SchemeError("Formals with non-symbol: " + str(formals))
+    if len(formals) != len(set(formals)):
+        raise SchemeError("Formals with duplicates: " + str(formals))
 
 ##################
 # Tail Recursion #
