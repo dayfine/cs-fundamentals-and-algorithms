@@ -74,11 +74,13 @@ def scheme_apply(procedure, args, env):
     if isinstance(procedure, PrimitiveProcedure):
         return apply_primitive(procedure, args, env)
     elif isinstance(procedure, LambdaProcedure):
-        local_frame = env.make_call_frame(procedure.formals, args)
+        local_frame = procedure.env.make_call_frame(procedure.formals, args)
         result = scheme_eval(procedure.body, local_frame)
         return result
     elif isinstance(procedure, MuProcedure):
-        "*** YOUR CODE HERE ***"
+        local_frame = env.make_call_frame(procedure.formals, args)
+        result = scheme_eval(procedure.body, local_frame)
+        return result
     else:
         raise SchemeError("Cannot call {0}".format(str(procedure)))
 
@@ -228,9 +230,13 @@ def do_lambda_form(vals, env):
 def do_mu_form(vals):
     """Evaluate a mu form with parameters VALS."""
     check_form(vals, 2)
-    formals = vals[0]
+    formals, body = vals.first, vals.second
     check_formals(formals)
-    "*** YOUR CODE HERE ***"
+    if len(body) == 1:
+        body = body.first
+    else:
+        body = Pair('begin', body)
+    return MuProcedure(formals, body)
 
 
 def do_define_form(vals, env):
@@ -267,7 +273,11 @@ def do_let_form(vals, env):
 
     # Add a frame containing bindings
     names, values = nil, nil
-    "*** YOUR CODE HERE ***"
+    for i in reversed(range(len(bindings))):
+        name = bindings[i][0]
+        value = scheme_eval(bindings[i][1], env)
+        names = Pair(name, names)
+        values = Pair(value, values)
     new_env = env.make_call_frame(names, values)
 
     # Evaluate all but the last expression after bindings, and return the last
