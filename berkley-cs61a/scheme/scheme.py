@@ -71,9 +71,6 @@ def scheme_eval(expr, env):
 
 def scheme_apply(procedure, args, env):
     """Apply Scheme PROCEDURE to argument values ARGS in environment ENV."""
-    print('apply what????')
-    print(procedure, args, env)
-    print(isinstance(procedure, PrimitiveProcedure))
     if isinstance(procedure, PrimitiveProcedure):
         return apply_primitive(procedure, args, env)
     elif isinstance(procedure, LambdaProcedure):
@@ -248,7 +245,6 @@ def do_define_form(vals, env):
     elif isinstance(target, Pair):
         symbol, formals = target.first, target.second
         function = do_lambda_form(Pair(formals, rest), env)
-        print(symbol, function)
         env.define(symbol, function)
         return symbol
     else:
@@ -288,12 +284,27 @@ def do_let_form(vals, env):
 def do_if_form(vals, env):
     """Evaluate if form with parameters VALS in environment ENV."""
     check_form(vals, 2, 3)
-    "*** YOUR CODE HERE ***"
+    boolean = scheme_eval(vals[0], env)
+    if scheme_true(boolean):
+        return vals[1]
+    else:
+        try:
+            return vals[2]
+        except IndexError:
+            return okay
 
 
 def do_and_form(vals, env):
     """Evaluate short-circuited and with parameters VALS in environment ENV."""
-    "*** YOUR CODE HERE ***"
+    length = len(vals)
+    if not length:
+        return True
+    for i in range(length):
+        val = scheme_eval(vals[i], env)
+        if scheme_false(val):
+            return False
+    else:
+        return vals[length-1]
 
 
 def quote(value):
@@ -310,7 +321,15 @@ def quote(value):
 
 def do_or_form(vals, env):
     """Evaluate short-circuited or with parameters VALS in environment ENV."""
-    "*** YOUR CODE HERE ***"
+    length = len(vals)
+    if not length:
+        return False
+    for i in range(length):
+        val = scheme_eval(vals[i], env)
+        if scheme_true(val):
+            return quote(val)
+    else:
+        return vals[length-1]
 
 
 def do_cond_form(vals, env):
@@ -327,7 +346,13 @@ def do_cond_form(vals, env):
         else:
             test = scheme_eval(clause.first, env)
         if scheme_true(test):
-            "*** YOUR CODE HERE ***"
+            result = clause.second
+            if result is nil or len(result) == 0:
+                return quote(test) if scheme_symbolp(test) else test
+            elif len(result) == 1:
+                return result[0]
+            else:
+                return do_begin_form(result, env)
     return okay
 
 
