@@ -28,16 +28,10 @@ CHIP Memory {
 
     PARTS:
     DMux (in=load, sel=address[14], a=dataMemory, b=ioMemory);
-    RAM16K (in=in, load=dataMemory, address=address[0..13], out=out0);
-    DMux4Way (in=ioMemory, sel=address[12..13], a=screen1, b=screen2, c=keyboard);
-    RAM4K (in=in, load=screen1, address=address[0..11], out=out1);
-    RAM4K (in=in, load=screen2, address=address[0..11], out=out2);
-    Register (in=in, load=keyboard, out=keyout);
-    // Get to the key
-    Or8Way (in=address[0..7], out=isNotZero1);
-    Or8Way (in[0..3]=address[8..11], out=isNotZero2);
-    Or (a=isNotZero1, b=isNotZero2, out=isNotZero);
-    Mux16 (a=keyout, sel=isNotZero, out=out3);
+    RAM16K (in=in, load=dataMemory, address=address[0..13], out=RAMOut);
+    Screen (in=in, load=ioMemory, address=address[0..12], out=screenOut);
+    Keyboard (out=keyOut);
 
-    Mux8Way16 (a=out0, b=out0, c=out0, d=out0, e=out1, f=out2, g=out3, sel=address[12..14], out=out);
+    Mux8Way16 (a=RAMOut, b=RAMOut, c=RAMOut, d=RAMOut, e=screenOut,
+               f=screenOut, g=keyOut, sel=address[12..14], out=out);
 }

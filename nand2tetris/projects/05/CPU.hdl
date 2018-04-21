@@ -39,7 +39,6 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    // Notes:
     // C Instruction ALU output control:
     // i[3] -> RAM[A]
     // i[4] -> D Register
