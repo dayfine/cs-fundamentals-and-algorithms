@@ -136,63 +136,6 @@ class VMTranslator:
             commands += [
                 'M=-M',
             ]
-        elif c_type == EQ:
-            commands += [
-                'D=M-D', # calc diff
-                '@SET_TRUE_{}'.format(self.unique_id), # branch
-                'D;JEQ',
-                '@SET_FALSE_{}'.format(self.unique_id),
-                'D;JNE',
-                '(SET_TRUE_{})'.format(self.unique_id), # set true and jump
-                'D=-1',
-                '@NEXT_{}'.format(self.unique_id),
-                'D;JMP',
-                '(SET_FALSE_{})'.format(self.unique_id), # set false
-                'D=0',
-                '(NEXT_{})'.format(self.unique_id), # set it to M
-                '@SP',
-                'A=M',
-                'M=D', # set to true
-            ]
-            self.unique_id += 1
-        elif c_type == GT:
-            commands += [
-                'D=M-D', # calc diff
-                '@SET_TRUE_{}'.format(self.unique_id), # branch
-                'D;JGT',
-                '@SET_FALSE_{}'.format(self.unique_id),
-                'D;JLE',
-                '(SET_TRUE_{})'.format(self.unique_id), # set true and jump
-                'D=-1',
-                '@NEXT_{}'.format(self.unique_id),
-                'D;JMP',
-                '(SET_FALSE_{})'.format(self.unique_id), # set false
-                'D=0',
-                '(NEXT_{})'.format(self.unique_id), # set it to M
-                '@SP',
-                'A=M',
-                'M=D', # set to true
-            ]
-            self.unique_id += 1
-        elif c_type == LT:
-            commands += [
-                'D=M-D', # calc diff
-                '@SET_TRUE_{}'.format(self.unique_id), # branch
-                'D;JLT',
-                '@SET_FALSE_{}'.format(self.unique_id),
-                'D;JGE',
-                '(SET_TRUE_{})'.format(self.unique_id), # set true and jump
-                'D=-1',
-                '@NEXT_{}'.format(self.unique_id),
-                'D;JMP',
-                '(SET_FALSE_{})'.format(self.unique_id), # set false
-                'D=0',
-                '(NEXT_{})'.format(self.unique_id), # set it to M
-                '@SP',
-                'A=M',
-                'M=D', # set to true
-            ]
-            self.unique_id += 1
         elif c_type == AND:
             commands += [
                 'M=D&M',
@@ -205,6 +148,32 @@ class VMTranslator:
             commands += [
                 'M=!M',
             ]
+        elif c_type in {EQ, GT, LT}:
+            if c_type == EQ:
+                true_jump, false_jump = 'JEQ', 'JNE'
+            elif c_type == GT:
+                true_jump, false_jump = 'JGT', 'JLE'
+            elif c_type == LT:
+                true_jump, false_jump = 'JLT', 'JGE'
+
+            commands += [
+                'D=M-D', # calc diff
+                '@SET_TRUE_{}'.format(self.unique_id), # branch
+                'D;{}'.format(true_jump),
+                '@SET_FALSE_{}'.format(self.unique_id),
+                'D;{}'.format(false_jump),
+                '(SET_TRUE_{})'.format(self.unique_id), # set true and jump
+                'D=-1',
+                '@NEXT_{}'.format(self.unique_id),
+                'D;JMP',
+                '(SET_FALSE_{})'.format(self.unique_id), # set false
+                'D=0',
+                '(NEXT_{})'.format(self.unique_id), # set it to M
+                '@SP',
+                'A=M',
+                'M=D',
+            ]
+            self.unique_id += 1
 
         commands += [
             '@SP',
