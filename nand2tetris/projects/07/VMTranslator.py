@@ -20,6 +20,21 @@ AND = 'and'
 OR = 'or'
 NOT = 'not'
 
+BINARY = 'binary'
+UNARY = 'unary'
+
+OPERATORS = {
+    'add': { 'type': BINARY },
+    'sub': { 'type': BINARY },
+    'neg': { 'type': UNARY },
+    'eq': { 'type': BINARY },
+    'gt': { 'type': BINARY },
+    'lt': { 'type': BINARY },
+    'and': { 'type': BINARY },
+    'or': { 'type': BINARY },
+    'not': { 'type': UNARY },
+}
+
 # STACK
 STACK_BASE_ADDR = 256
 
@@ -33,15 +48,26 @@ SEG_STATIC = 'static'
 SEG_POINTER = 'pointer'
 SEG_TEMP = 'temp'
 
+MEMORY_SEGMENT_POINTERS = {
+    'local': 'LCL',
+    'argument': 'arg',
+}
 
-class VMTranslator
-    def __init__():
-        self.outputs = []
+
+
+class VMTranslator:
+    def __init__(self):
+        self.outputs = [
+            # always initiate with true and false
+            '@true',
+            'M=-1',
+            '@false',
+            'M=0'
+        ]
         self.stack_address = STACK_BASE_ADDR
 
     def translate(self, filepath):
         self.load(filepath)
-        self.second_pass()
         self.write(filepath)
 
 
@@ -58,7 +84,7 @@ class VMTranslator
         tokens = line.split(' ')
 
         if len(tokens) == 1:
-            parse_operator_command(tokens[0])
+            self.parse_operator_command(tokens[0])
         elif tokens[0] == 'push':
             _, segment, arg = tokens
             self.parse_push_command(arg, segment)
@@ -71,7 +97,6 @@ class VMTranslator
             '// push {} {}'.format(segment, arg),
         ]
 
-
         if segment == SEG_CONSTANT: # if pushing to the stack
             commands += [
                 '@{}'.format(arg),
@@ -83,32 +108,78 @@ class VMTranslator
                 'M=M+1',  # move stack pointer
             ]
 
+        self.outputs += commands
+
+
     def parse_pop_command(self, arg=None, segment=None):
         if segment is None: # if popping from the stack
             return popped
 
     def parse_operator_command(self, c_type):
-        arg1 = self.parse_pop_command()
-        arg2 = self.parse_pop_command()
+        commands = [
+            '// {}'.format(c_type),
+            '@SP',
+            'M=M-1',
+            'A=M', # move to the top number on stack
+        ]
+
+        op_type = OPERATORS[c_type]['type']
+        if op_type == BINARY:
+            commands += [
+                'D=M', # take the number from top of stack
+                '@SP',
+                'M=M-1',
+                'A=M',
+                'M=D+M', # add it to the next number on stack
+            ]
+
 
         if c_type == ADD:
-            self.parse_push_command(arg1 + arg2)
+            commands += [
+                'M=D+M', # add it to the next number on stack
+            ]
         elif c_type == SUB:
-            self.parse_push_command(arg1 - arg2)
+            commands += [
+                'M=M-D', # substract the top number from current numnber
+            ]
         elif c_type == NEG:
-            self.parse_push_command(-arg1)
+            commands += [
+                'M=-M',
+            ]
         elif c_type == EQ:
-            self.parse_push_command(arg1 == 0)
+            commands += [
+                '@',
+                'D=M-D;JEQ',
+                'D=M',
+                '@true'
+            ]
         elif c_type == GT:
-            self.parse_push_command(arg1 > arg2)
+            commands += [
+                'M=-M',
+            ]
         elif c_type == LT:
-            self.parse_push_command(arg1 < arg2)
+            commands += [
+                'M=-M',
+            ]
         elif c_type == AND:
-            self.parse_push_command(arg1 and arg2)
+            commands += [
+                'M=D&M',
+            ]
         elif c_type == OR:
-            self.parse_push_command(arg1 or arg2)
+            commands += [
+                'M=D|M',
+            ]
         elif c_type == NOT:
-            self.parse_push_command(not arg1)
+            commands += [
+                'M=!M',
+            ]
+
+        commands += [
+            '@SP',
+            'M=M+1',  # move stack pointer back up
+        ]
+
+        self.outputs += commands
 
     def write(self, input_path):
         output_path = input_path.replace('vm', 'asm')
@@ -125,4 +196,4 @@ if __name__ == '__main__':
         filepath = join(dirname(dirname(__file__)), filepath)
 
     translator = VMTranslator()
-    translator.translate(filename)
+    translator.translate(filepath)
