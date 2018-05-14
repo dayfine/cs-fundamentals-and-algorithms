@@ -54,22 +54,15 @@ MEMORY_SEGMENT_POINTERS = {
 }
 
 
-
 class VMTranslator:
     def __init__(self):
-        self.outputs = [
-            # always initiate with true and false
-            '@true',
-            'M=-1',
-            '@false',
-            'M=0'
-        ]
+        self.outputs = []
         self.stack_address = STACK_BASE_ADDR
+        self.unique_id = 0
 
     def translate(self, filepath):
         self.load(filepath)
         self.write(filepath)
-
 
     def load(self, filepath):
         with open(filepath, 'r') as f:
@@ -110,7 +103,6 @@ class VMTranslator:
 
         self.outputs += commands
 
-
     def parse_pop_command(self, arg=None, segment=None):
         if segment is None: # if popping from the stack
             return popped
@@ -130,9 +122,7 @@ class VMTranslator:
                 '@SP',
                 'M=M-1',
                 'A=M',
-                'M=D+M', # add it to the next number on stack
             ]
-
 
         if c_type == ADD:
             commands += [
@@ -148,19 +138,61 @@ class VMTranslator:
             ]
         elif c_type == EQ:
             commands += [
-                '@',
-                'D=M-D;JEQ',
-                'D=M',
-                '@true'
+                'D=M-D', # calc diff
+                '@SET_TRUE_{}'.format(self.unique_id), # branch
+                'D;JEQ',
+                '@SET_FALSE_{}'.format(self.unique_id),
+                'D;JNE',
+                '(SET_TRUE_{})'.format(self.unique_id), # set true and jump
+                'D=-1',
+                '@NEXT_{}'.format(self.unique_id),
+                'D;JMP',
+                '(SET_FALSE_{})'.format(self.unique_id), # set false
+                'D=0',
+                '(NEXT_{})'.format(self.unique_id), # set it to M
+                '@SP',
+                'A=M',
+                'M=D', # set to true
             ]
+            self.unique_id += 1
         elif c_type == GT:
             commands += [
-                'M=-M',
+                'D=M-D', # calc diff
+                '@SET_TRUE_{}'.format(self.unique_id), # branch
+                'D;JGT',
+                '@SET_FALSE_{}'.format(self.unique_id),
+                'D;JLE',
+                '(SET_TRUE_{})'.format(self.unique_id), # set true and jump
+                'D=-1',
+                '@NEXT_{}'.format(self.unique_id),
+                'D;JMP',
+                '(SET_FALSE_{})'.format(self.unique_id), # set false
+                'D=0',
+                '(NEXT_{})'.format(self.unique_id), # set it to M
+                '@SP',
+                'A=M',
+                'M=D', # set to true
             ]
+            self.unique_id += 1
         elif c_type == LT:
             commands += [
-                'M=-M',
+                'D=M-D', # calc diff
+                '@SET_TRUE_{}'.format(self.unique_id), # branch
+                'D;JLT',
+                '@SET_FALSE_{}'.format(self.unique_id),
+                'D;JGE',
+                '(SET_TRUE_{})'.format(self.unique_id), # set true and jump
+                'D=-1',
+                '@NEXT_{}'.format(self.unique_id),
+                'D;JMP',
+                '(SET_FALSE_{})'.format(self.unique_id), # set false
+                'D=0',
+                '(NEXT_{})'.format(self.unique_id), # set it to M
+                '@SP',
+                'A=M',
+                'M=D', # set to true
             ]
+            self.unique_id += 1
         elif c_type == AND:
             commands += [
                 'M=D&M',
