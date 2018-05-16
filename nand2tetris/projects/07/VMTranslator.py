@@ -103,6 +103,7 @@ class VMTranslator:
                 '@{}'.format(arg),
                 'D=A', # get constant value
             ]
+
         elif segment in {SEG_LOCAL, SEG_ARGUMENT, SEG_THIS, SEG_THAT}:
             segment_label = MEMORY_SEGMENT_POINTERS[segment]
             commands += [
@@ -112,15 +113,31 @@ class VMTranslator:
                 'A=D+A', # add the offset
                 'D=M', # get value from memory location
             ]
+
         elif segment == SEG_STATIC:
             ref = '{}.{}'.format(self.namespace, arg)
             pass
+
         elif segment == SEG_POINTER:
-            pass
+            if int(arg) == 0:
+                pointer = MEMORY_SEGMENT_POINTERS['this']
+            elif int(arg) == 1:
+                pointer = MEMORY_SEGMENT_POINTERS['that']
+            else:
+                raise Exception('invalid argument for pop pointer command')
+
+            commands += [
+                '@{}'.format(pointer),
+                'D=M',
+            ]
+
         elif segment == SEG_TEMP:
+            if int(arg) >= 8:
+                raise Exception('temp address is too large')
+
             commands += [
                 # the 8-place from 5 to 12
-                '@{}'.format(arg+5),
+                '@{}'.format(int(arg) + 5),
                 'D=M',
             ]
 
@@ -160,19 +177,39 @@ class VMTranslator:
                 'A=M',
                 'M=D',
             ]
+
         elif segment == SEG_STATIC:
             ref = '{}.{}'.format(self.namespace, arg)
             pass
+
         elif segment == SEG_POINTER:
-            pass
+            if int(arg) == 0:
+                pointer = MEMORY_SEGMENT_POINTERS['this']
+            elif int(arg) == 1:
+                pointer = MEMORY_SEGMENT_POINTERS['that']
+            else:
+                raise Exception('invalid argument for pop pointer command')
+
+            commands += [
+                '@SP',
+                'M=M-1',
+                'A=M',
+                'D=M',
+                '@{}'.format(pointer),
+                'M=D',
+            ]
+
         elif segment == SEG_TEMP:
+            if int(arg) >= 8:
+                raise Exception('temp address is too large')
+
             commands += [
                 '@SP',
                 'M=M-1',
                 'A=M',
                 'D=M',
                 # the 8-place from 5 to 12
-                '@{}'.format(arg+5),
+                '@{}'.format(int(arg) + 5),
                 'M=D',
             ]
 
