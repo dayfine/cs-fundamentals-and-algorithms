@@ -50,7 +50,9 @@ SEG_TEMP = 'temp'
 
 MEMORY_SEGMENT_POINTERS = {
     'local': 'LCL',
-    'argument': 'arg',
+    'argument': 'ARG',
+    'this': 'THIS',
+    'that': 'THAT',
 }
 
 
@@ -59,12 +61,15 @@ class VMTranslator:
         self.outputs = []
         self.stack_address = STACK_BASE_ADDR
         self.unique_id = 0
+        self.namespace = ''
 
     def translate(self, filepath):
         self.load(filepath)
         self.write(filepath)
 
     def load(self, filepath):
+        self.namespace = filepath[:-3]
+
         with open(filepath, 'r') as f:
             for line in f:
                 l = line.strip()
@@ -81,6 +86,9 @@ class VMTranslator:
         elif tokens[0] == 'push':
             _, segment, arg = tokens
             self.parse_push_command(arg, segment)
+        elif tokens[0] == 'pop':
+            _, segment, arg = tokens
+            self.parse_pop_command(arg, segment)
 
     def parse_push_command(self, arg=None, segment=SEG_CONSTANT):
         if arg is None:
@@ -93,19 +101,82 @@ class VMTranslator:
         if segment == SEG_CONSTANT: # if pushing to the stack
             commands += [
                 '@{}'.format(arg),
-                'D=A',
-                '@SP',  # assign data value to stack location
-                'A=M',
-                'M=D',
-                '@SP',
-                'M=M+1',  # move stack pointer
+                'D=A', # get constant value
             ]
+        elif segment in {SEG_LOCAL, SEG_ARGUMENT, SEG_THIS, SEG_THAT}:
+            segment_label = MEMORY_SEGMENT_POINTERS[segment]
+            commands += [
+                '@{}'.format(segment_label),
+                'D=M', # get segment base!
+                '@{}'.format(arg),
+                'A=D+A', # add the offset
+                'D=M', # get value from memory location
+            ]
+        elif segment == SEG_STATIC:
+            ref = '{}.{}'.format(self.namespace, arg)
+            pass
+        elif segment == SEG_POINTER:
+            pass
+        elif segment == SEG_TEMP:
+            commands += [
+                # the 8-place from 5 to 12
+                '@{}'.format(arg+5),
+                'D=M',
+            ]
+
+        commands += [
+            '@SP',  # assign data value to stack location
+            'A=M',
+            'M=D',
+            '@SP',
+            'M=M+1',  # move stack pointer
+        ]
 
         self.outputs += commands
 
     def parse_pop_command(self, arg=None, segment=None):
-        if segment is None: # if popping from the stack
-            return popped
+        """
+        e.g. pop local 2
+        pop the top of the stack and put it @ local + 2
+        """
+        commands = [
+            '// pop {} {}'.format(segment, arg),
+        ]
+
+        if segment in {SEG_LOCAL, SEG_ARGUMENT, SEG_THIS, SEG_THAT}:
+            segment_label = MEMORY_SEGMENT_POINTERS[segment]
+            commands += [
+                '@{}'.format(segment_label),
+                'D=M', # get segment base!
+                '@{}'.format(arg),
+                'D=D+A', # add the offset
+                '@tempaddr', # store this address in tempaddr
+                'M=D',
+                '@SP',
+                'M=M-1',
+                'A=M', # move to the top number on stack
+                'D=M', # take the number from top of stack
+                '@tempaddr', # now jump to target address
+                'A=M',
+                'M=D',
+            ]
+        elif segment == SEG_STATIC:
+            ref = '{}.{}'.format(self.namespace, arg)
+            pass
+        elif segment == SEG_POINTER:
+            pass
+        elif segment == SEG_TEMP:
+            commands += [
+                '@SP',
+                'M=M-1',
+                'A=M',
+                'D=M',
+                # the 8-place from 5 to 12
+                '@{}'.format(arg+5),
+                'M=D',
+            ]
+
+        self.outputs += commands
 
     def parse_operator_command(self, c_type):
         commands = [
@@ -156,6 +227,7 @@ class VMTranslator:
             elif c_type == LT:
                 true_jump, false_jump = 'JLT', 'JGE'
 
+            # TODO: come back to fix this piece of mess
             commands += [
                 'D=M-D', # calc diff
                 '@SET_TRUE_{}'.format(self.unique_id), # branch
