@@ -68,7 +68,8 @@ class VMTranslator:
         self.write(filepath)
 
     def load(self, filepath):
-        self.namespace = filepath[:-3]
+        idx = filepath.rfind('/')
+        self.namespace = filepath[idx+1:-3]
 
         with open(filepath, 'r') as f:
             for line in f:
@@ -115,8 +116,10 @@ class VMTranslator:
             ]
 
         elif segment == SEG_STATIC:
-            ref = '{}.{}'.format(self.namespace, arg)
-            pass
+            commands += [
+                '@{}.{}'.format(self.namespace, arg),
+                'D=M',
+            ]
 
         elif segment == SEG_POINTER:
             if int(arg) == 0:
@@ -159,6 +162,7 @@ class VMTranslator:
         commands = [
             '// pop {} {}'.format(segment, arg),
         ]
+        pop_target = None
 
         if segment in {SEG_LOCAL, SEG_ARGUMENT, SEG_THIS, SEG_THAT}:
             segment_label = MEMORY_SEGMENT_POINTERS[segment]
@@ -169,18 +173,11 @@ class VMTranslator:
                 'D=D+A', # add the offset
                 '@tempaddr', # store this address in tempaddr
                 'M=D',
-                '@SP',
-                'M=M-1',
-                'A=M', # move to the top number on stack
-                'D=M', # take the number from top of stack
-                '@tempaddr', # now jump to target address
-                'A=M',
-                'M=D',
             ]
+            pop_target = '@tempaddr'
 
         elif segment == SEG_STATIC:
-            ref = '{}.{}'.format(self.namespace, arg)
-            pass
+            pop_target = '@{}.{}'.format(self.namespace, arg)
 
         elif segment == SEG_POINTER:
             if int(arg) == 0:
@@ -189,29 +186,25 @@ class VMTranslator:
                 pointer = MEMORY_SEGMENT_POINTERS['that']
             else:
                 raise Exception('invalid argument for pop pointer command')
-
-            commands += [
-                '@SP',
-                'M=M-1',
-                'A=M',
-                'D=M',
-                '@{}'.format(pointer),
-                'M=D',
-            ]
+            pop_target = '@{}'.format(pointer)
 
         elif segment == SEG_TEMP:
+            # the 8-place from 5 to 12
             if int(arg) >= 8:
                 raise Exception('temp address is too large')
+            pop_target = '@{}'.format(int(arg) + 5)
 
-            commands += [
-                '@SP',
-                'M=M-1',
-                'A=M',
-                'D=M',
-                # the 8-place from 5 to 12
-                '@{}'.format(int(arg) + 5),
-                'M=D',
-            ]
+        commands += [
+            '@SP',
+            'M=M-1',
+            'A=M',
+            'D=M',
+            pop_target,
+        ]
+
+        if segment in {SEG_LOCAL, SEG_ARGUMENT, SEG_THIS, SEG_THAT}:
+            commands += ['A=M']
+        commands += ['M=D']
 
         self.outputs += commands
 
