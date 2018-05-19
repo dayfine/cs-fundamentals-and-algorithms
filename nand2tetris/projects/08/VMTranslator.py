@@ -19,26 +19,30 @@ class VMTranslator:
     STACK_BASE_ADDR = 256
 
     def __init__(self):
+        self.lines = []
         self.outputs = []
         self.stack_address = self.STACK_BASE_ADDR
-        self.unique_id = 0
+        self.unique_jump_id = 0
         self.namespace = ''
-
-    def translate(self, filepath):
-        self.load(filepath)
-        self.write(filepath)
+        self.current_func = ''
+        self.unique_return_id = 0
 
     def load(self, filepath):
         idx = filepath.rfind('/')
         self.namespace = filepath[idx+1:-3]
+        self.lines = []
 
         with open(filepath, 'r') as f:
             for line in f:
                 l = line.strip()
                 if not l or l.startswith('//'):
                     continue
+                self.lines.append(l)
 
-                self.parse_line(l)
+    def translate(self):
+        for line in self.lines:
+            self.parse_line(line)
+        return self.outputs
 
     def parse_line(self, line):
         code = line.split('// ')[0].strip()  # strip inline comments
@@ -266,22 +270,22 @@ class VMTranslator:
             # TODO: come back to fix this piece of mess
             commands += [
                 'D=M-D', # calc diff
-                '@SET_TRUE_{}'.format(self.unique_id), # branch
+                '@SET_TRUE_{}'.format(self.unique_jump_id), # branch
                 'D;{}'.format(true_jump),
-                '@SET_FALSE_{}'.format(self.unique_id),
+                '@SET_FALSE_{}'.format(self.unique_jump_id),
                 'D;{}'.format(false_jump),
-                '(SET_TRUE_{})'.format(self.unique_id), # set true and jump
+                '(SET_TRUE_{})'.format(self.unique_jump_id), # set true and jump
                 'D=-1',
-                '@NEXT_{}'.format(self.unique_id),
+                '@NEXT_{}'.format(self.unique_jump_id),
                 'D;JMP',
-                '(SET_FALSE_{})'.format(self.unique_id), # set false
+                '(SET_FALSE_{})'.format(self.unique_jump_id), # set false
                 'D=0',
-                '(NEXT_{})'.format(self.unique_id), # set it to M
+                '(NEXT_{})'.format(self.unique_jump_id), # set it to M
                 '@SP',
                 'A=M',
                 'M=D',
             ]
-            self.unique_id += 1
+            self.unique_jump_id += 1
 
         commands += [
             '@SP',
@@ -291,6 +295,9 @@ class VMTranslator:
         self.outputs += commands
 
     def parse_label_command(self, label):
+        if self.current_func:
+            label = '{}${}'.format(self.current_func, label)
+
         commands = [
             '// label {}'.format(label),
             '({})'.format(label),
@@ -327,11 +334,7 @@ class VMTranslator:
             '// function {} {}'.format(func, num_local_var),
             '({})'.format(func),
         ]
-
-        LCL = MEMORY_SEGMENT_POINTERS['local']
-
-        # commands +=
-
+        self.current_func = func
         self.outputs += commands
 
     def parse_call_command(self):
@@ -351,18 +354,21 @@ class VMTranslator:
         THIS = MEMORY_SEGMENT_POINTERS['this']
         THAT = MEMORY_SEGMENT_POINTERS['that']
 
+        endFrame = '@{}$endFrame.{}'.format(self.current_func, self.unique_return_id)
+        retAddr = '@{}$ret.{}'.format(self.current_func, self.unique_return_id)
+
         # assign top of the stack to arg0, and reset
         commands += [
             '@{}'.format(LCL),
             'D=M',
-            '@endFrame',
+            endFrame,
             'M=D',
             '@5',
             'D=A',
-            '@endFrame',
+            endFrame,
             'A=M-D',  # let's go to the return address!
             'D=M',
-            '@retAddr',
+            retAddr,
             'M=D',
         ]
 
@@ -379,7 +385,7 @@ class VMTranslator:
         # restore caller frame
         for idx, label in enumerate([THAT, THIS, ARG, LCL], 1):
             commands += [
-                '@endFrame',
+                endFrame,
                 'D=M',
                 '@{}'.format(idx),
                 'A=D-A',
@@ -390,25 +396,43 @@ class VMTranslator:
 
         # goto return address
         commands += [
-            '@retAddr',
+            retAddr,
             'A=M',
         ]
 
+        self.current_func = ''
+        self.unique_return_id += 1
+
         self.outputs += commands
 
-    def write(self, input_path):
-        output_path = input_path.replace('vm', 'asm')
+    def write(self, outputs, output_path):
         with open(output_path, 'w') as f:
-            f.write('\n'.join(self.outputs))
+            f.write('\n'.join(outputs))
 
 
 if __name__ == '__main__':
     from sys import argv
-    from os.path import exists, join, dirname
+    from os import listdir, path
     script, filepath = argv
 
-    if not exists(filepath):
-        filepath = join(dirname(dirname(__file__)), filepath)
+    if not path.exists(filepath):
+        filepath = path.join(dirname(dirname(__file__)), filepath)
 
     translator = VMTranslator()
-    translator.translate(filepath)
+
+    if path.isdir(filepath):
+        output = []
+        vm_files = [path.join(filepath, file)
+                    for file in listdir(filepath)
+                    if f[-3:] == '.vm']
+
+        for f in vm_files:
+            translator.load(filepath)
+            output += translator.translate()
+        output_path = path.abspath('{}.vm'.format(filepath))
+    else:
+        translator.load(filepath)
+        asm_codes = translator.translate()
+        output_path = filepath.replace('vm', 'asm')
+
+    translator.write(asm_codes, output_path)
