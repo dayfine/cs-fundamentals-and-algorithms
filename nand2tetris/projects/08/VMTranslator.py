@@ -26,6 +26,7 @@ class VMTranslator:
         self.namespace = ''
         self.current_func = ''
         self.unique_return_id = 0
+        self.unique_frame_id = 0
 
     def load(self, filepath):
         idx = filepath.rfind('/')
@@ -71,8 +72,8 @@ class VMTranslator:
             _, func, num_local_var = tokens
             self.parse_function_command(func, num_local_var)
         elif tokens[0] == 'call':
-            _, label = tokens
-            self.parse_call_command(arg, label)
+            _, func, num_args = tokens
+            self.parse_call_command(func, num_args)
 
     def parse_push_command(self, arg=None, segment=SEG_CONSTANT):
         if arg is None:
@@ -306,6 +307,9 @@ class VMTranslator:
         self.outputs += commands
 
     def parse_goto_command(self, label):
+        if self.current_func and not label.startswith(self.namespace):
+            label = '{}${}'.format(self.current_func, label)
+
         commands = [
             '// goto {}'.format(label),
             '@{}'.format(label),
@@ -332,14 +336,69 @@ class VMTranslator:
     def parse_function_command(self, func, num_local_var):
         commands = [
             '// function {} {}'.format(func, num_local_var),
-            '({})'.format(func),
+            '({})'.format(func),  # call command will come to this label
         ]
         self.current_func = func
         self.outputs += commands
 
-    def parse_call_command(self):
+    def parse_call_command(self, func, num_args):
         commands = [
-            '// function {} {}'.format(func, num_local_var),
+            '// call {} {}'.format(func, num_args),
+        ]
+
+        LCL = MEMORY_SEGMENT_POINTERS['local']
+        ARG = MEMORY_SEGMENT_POINTERS['argument']
+        THIS = MEMORY_SEGMENT_POINTERS['this']
+        THAT = MEMORY_SEGMENT_POINTERS['that']
+
+        retAddr = '{}$ret.{}'.format(func, self.unique_return_id)
+        self.unique_return_id += 1
+
+        PUSH_BOILERPLATE = [
+            '@SP',  # assign data value to stack location
+            'A=M',
+            'M=D',
+            '@SP',
+            'M=M+1',  # move stack pointer
+        ]
+
+        # first, push return address to stack
+        commands += [
+            '@{}'.format(retAddr),
+            'D=A',
+        ] + PUSH_BOILERPLATE
+
+        # restore current frame
+        for idx, label in enumerate([LCL, ARG, THIS, THAT], 1):
+            commands += [
+                '@{}'.format(label),
+                'D=M',
+            ] + PUSH_BOILERPLATE
+
+        # Move ARG pointer
+        commands += [
+            # jump beyond arguments and the above stored slots
+            '@{}'.format(5 + int(num_args)),
+            'D=A',
+            '@SP',
+            'D=M-D',
+            '@{}'.format(ARG),
+            'M=D',
+        ]
+
+        # Move LCL pointer
+        commands += [
+            '@SP',
+            'D=M',
+            '@{}'.format(LCL),
+            'M=D',
+        ]
+
+        self.parse_goto_command(func)
+
+        # make return address label
+        commands += [
+            '({})'.format(retAddr),
         ]
 
         self.outputs += commands
@@ -354,21 +413,22 @@ class VMTranslator:
         THIS = MEMORY_SEGMENT_POINTERS['this']
         THAT = MEMORY_SEGMENT_POINTERS['that']
 
-        endFrame = '@{}$endFrame.{}'.format(self.current_func, self.unique_return_id)
-        retAddr = '@{}$ret.{}'.format(self.current_func, self.unique_return_id)
+        endFrameCmd = '@{}$endFrame.{}'.format(self.current_func, self.unique_frame_id)
+        # note this is different from the return address in call command
+        retAddrCmd = '@{}$retAddr.{}'.format(self.current_func, self.unique_frame_id)
 
         # assign top of the stack to arg0, and reset
         commands += [
             '@{}'.format(LCL),
             'D=M',
-            endFrame,
+            endFrameCmd,
             'M=D',
             '@5',
             'D=A',
-            endFrame,
-            'A=M-D',  # let's go to the return address!
+            endFrameCmd,
+            'A=M-D',  # this is the return address, save it somewhere
             'D=M',
-            retAddr,
+            retAddrCmd,
             'M=D',
         ]
 
@@ -385,7 +445,7 @@ class VMTranslator:
         # restore caller frame
         for idx, label in enumerate([THAT, THIS, ARG, LCL], 1):
             commands += [
-                endFrame,
+                endFrameCmd,
                 'D=M',
                 '@{}'.format(idx),
                 'A=D-A',
@@ -396,13 +456,12 @@ class VMTranslator:
 
         # goto return address
         commands += [
-            retAddr,
+            retAddrCmd,
             'A=M',
         ]
 
         self.current_func = ''
-        self.unique_return_id += 1
-
+        self.unique_frame_id += 1
         self.outputs += commands
 
     def write(self, outputs, output_path):
@@ -416,23 +475,25 @@ if __name__ == '__main__':
     script, filepath = argv
 
     if not path.exists(filepath):
-        filepath = path.join(dirname(dirname(__file__)), filepath)
+        filepath = path.join(path.dirname(path.dirname(__file__)), filepath)
 
     translator = VMTranslator()
 
+    # compiling all vm file in the dir if a dir is passed
     if path.isdir(filepath):
-        output = []
+        asm_codes = []
         vm_files = [path.join(filepath, file)
                     for file in listdir(filepath)
-                    if f[-3:] == '.vm']
+                    if file[-3:] == '.vm']
 
         for f in vm_files:
-            translator.load(filepath)
-            output += translator.translate()
-        output_path = path.abspath('{}.vm'.format(filepath))
+            translator.load(f)
+            asm_codes += translator.translate()
+        output_path = path.join(filepath, '{}.asm'.format(path.basename(filepath)))
+        translator.write(asm_codes, output_path)
+    # or just one vm file
     else:
         translator.load(filepath)
         asm_codes = translator.translate()
         output_path = filepath.replace('vm', 'asm')
-
-    translator.write(asm_codes, output_path)
+        translator.write(asm_codes, output_path)
