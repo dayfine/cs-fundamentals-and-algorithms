@@ -44,8 +44,10 @@ class VMTranslator:
         code = line.split('// ')[0].strip()  # strip inline comments
         tokens = code.split(' ')
 
-        if len(tokens) == 1:
+        if len(tokens) == 1 and tokens[0] != 'return':
             self.parse_operator_command(tokens[0])
+        if len(tokens) == 1 and tokens[0] == 'return':
+            self.parse_return_command()
         elif tokens[0] == 'push':
             _, segment, arg = tokens
             self.parse_push_command(arg, segment)
@@ -62,14 +64,11 @@ class VMTranslator:
             _, label = tokens
             self.parse_if_command(label)
         elif tokens[0] == 'function':
-            _, label = tokens
-            self.parse_if_command(arg, label)
+            _, func, num_local_var = tokens
+            self.parse_function_command(func, num_local_var)
         elif tokens[0] == 'call':
             _, label = tokens
-            self.parse_if_command(arg, label)
-        elif tokens[0] == 'return':
-            _, label = tokens
-            self.parse_if_command(arg, label)
+            self.parse_call_command(arg, label)
 
     def parse_push_command(self, arg=None, segment=SEG_CONSTANT):
         if arg is None:
@@ -323,20 +322,76 @@ class VMTranslator:
 
         self.outputs += commands
 
-    def parse_function_command(self):
+    def parse_function_command(self, func, num_local_var):
         commands = [
+            '// function {} {}'.format(func, num_local_var),
+            '({})'.format(func),
         ]
+
+        LCL = MEMORY_SEGMENT_POINTERS['local']
+
+        # commands +=
 
         self.outputs += commands
 
     def parse_call_command(self):
         commands = [
+            '// function {} {}'.format(func, num_local_var),
         ]
 
         self.outputs += commands
 
     def parse_return_command(self):
         commands = [
+            '// return',
+        ]
+
+        LCL = MEMORY_SEGMENT_POINTERS['local']
+        ARG = MEMORY_SEGMENT_POINTERS['argument']
+        THIS = MEMORY_SEGMENT_POINTERS['this']
+        THAT = MEMORY_SEGMENT_POINTERS['that']
+
+        # assign top of the stack to arg0, and reset
+        commands += [
+            '@{}'.format(LCL),
+            'D=M',
+            '@endFrame',
+            'M=D',
+            '@5',
+            'D=A',
+            '@endFrame',
+            'A=M-D',  # let's go to the return address!
+            'D=M',
+            '@retAddr',
+            'M=D',
+        ]
+
+        # pop argument 0
+        self.parse_pop_command(0, SEG_ARGUMENT)
+
+        commands += [
+            '@{}'.format(ARG),
+            'D=M',
+            '@SP',
+            'M=D+1', # move stack pointer
+        ]
+
+        # restore caller frame
+        for idx, label in enumerate([THAT, THIS, ARG, LCL], 1):
+            commands += [
+                '@endFrame',
+                'D=M',
+                '@{}'.format(idx),
+                'A=D-A',
+                'D=M',
+                '@{}'.format(label),
+                'M=D',
+            ]
+
+        # goto return address
+        commands += [
+            '@retAddr',
+            'A=M',
         ]
 
         self.outputs += commands
