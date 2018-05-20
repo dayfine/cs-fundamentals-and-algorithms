@@ -25,16 +25,6 @@ class VMTranslator:
         self.current_func = ''
         self.outputs = []
 
-        # bootstrapping
-        self.outputs += [
-            '@256',
-            'D=A',
-            '@SP',
-            'M=D',
-        ]
-
-        self.outputs += self.parse_call_command('Sys.init', 0)
-
     def load(self, filepath):
         idx = filepath.rfind('/')
         self.namespace = filepath[idx+1:-3]
@@ -46,7 +36,15 @@ class VMTranslator:
                     continue
                 self.lines.append(l)
 
-    def translate(self):
+    def bootstrap(self):
+        return [
+            '@256',
+            'D=A',
+            '@SP',
+            'M=D',
+        ] + self.parse_call_command('Sys.init', 0)
+
+    def translate(self, bootstrap=False):
         for line in self.lines:
             self.parse_line(line)
         return self.outputs
@@ -506,9 +504,11 @@ if __name__ == '__main__':
     if not path.exists(filepath):
         filepath = path.join(path.dirname(path.dirname(__file__)), filepath)
 
-    translator = VMTranslator()
     # compiling all vm file in the dir if a dir is passed
     if path.isdir(filepath):
+        if filepath.endswith ('/'):
+            filepath = filepath[:-1]
+
         asm_codes = []
         vm_files = []
 
@@ -525,15 +525,17 @@ if __name__ == '__main__':
             if vmfilepath[-3:] == '.vm' and vmfilepath not in vm_files:
                 vm_files.append(vmfilepath)
 
+        asm_codes += translator.bootstrap()
         for f in vm_files:
+            translator = VMTranslator()
             translator.load(f)
-        asm_codes += translator.translate()
+            asm_codes += translator.translate()
 
         output_path = path.join(filepath, '{}.asm'.format(path.basename(filepath)))
         translator.write(asm_codes, output_path)
     # or just one vm file
     else:
-
+        translator = VMTranslator()
         translator.load(filepath)
         asm_codes = translator.translate()
         output_path = filepath.replace('vm', 'asm')
