@@ -50,30 +50,31 @@ class VMTranslator:
         tokens = code.split(' ')
 
         if len(tokens) == 1 and tokens[0] != 'return':
-            self.parse_operator_command(tokens[0])
+            commands = self.parse_operator_command(tokens[0])
         if len(tokens) == 1 and tokens[0] == 'return':
-            self.parse_return_command()
+            commands = self.parse_return_command()
         elif tokens[0] == 'push':
             _, segment, arg = tokens
-            self.parse_push_command(arg, segment)
+            commands = self.parse_push_command(arg, segment)
         elif tokens[0] == 'pop':
             _, segment, arg = tokens
-            self.parse_pop_command(arg, segment)
+            commands = self.parse_pop_command(arg, segment)
         elif tokens[0] == 'label':
             _, label = tokens
-            self.parse_label_command(label)
+            commands = self.parse_label_command(label)
         elif tokens[0] == 'goto':
             _, label = tokens
-            self.parse_goto_command(label)
+            commands = self.parse_goto_command(label)
         elif tokens[0] == 'if-goto':
             _, label = tokens
-            self.parse_if_command(label)
+            commands = self.parse_if_command(label)
         elif tokens[0] == 'function':
             _, func, num_local_var = tokens
-            self.parse_function_command(func, num_local_var)
+            commands = self.parse_function_command(func, num_local_var)
         elif tokens[0] == 'call':
             _, func, num_args = tokens
-            self.parse_call_command(func, num_args)
+            commands = self.parse_call_command(func, num_args)
+        self.outputs += commands
 
     def parse_push_command(self, arg=None, segment=SEG_CONSTANT):
         if arg is None:
@@ -136,7 +137,7 @@ class VMTranslator:
             'M=M+1',  # move stack pointer
         ]
 
-        self.outputs += commands
+        return commands
 
     def parse_pop_command(self, arg=None, segment=None):
         """
@@ -190,7 +191,7 @@ class VMTranslator:
             commands += ['A=M']
         commands += ['M=D']
 
-        self.outputs += commands
+        return commands
 
     def parse_operator_command(self, c_type):
         # ARITHMETIC_COMMANDS
@@ -293,7 +294,7 @@ class VMTranslator:
             'M=M+1',  # move stack pointer back up
         ]
 
-        self.outputs += commands
+        return commands
 
     def parse_label_command(self, label):
         if self.current_func:
@@ -304,7 +305,7 @@ class VMTranslator:
             '({})'.format(label),
         ]
 
-        self.outputs += commands
+        return commands
 
     def parse_goto_command(self, label):
         if self.current_func and not label.startswith(self.namespace):
@@ -316,7 +317,7 @@ class VMTranslator:
             '0;JMP',
         ]
 
-        self.outputs += commands
+        return commands
 
     def parse_if_command(self, label):
         self.outputs += [
@@ -331,7 +332,7 @@ class VMTranslator:
             'D;JNE',
         ]
 
-        self.outputs += commands
+        return commands
 
     def parse_function_command(self, func, num_local_var):
         commands = [
@@ -339,7 +340,7 @@ class VMTranslator:
             '({})'.format(func),  # call command will come to this label
         ]
         self.current_func = func
-        self.outputs += commands
+        return commands
 
     def parse_call_command(self, func, num_args):
         commands = [
@@ -368,7 +369,7 @@ class VMTranslator:
             'D=A',
         ] + PUSH_BOILERPLATE
 
-        # restore current frame
+        # store current frame
         for idx, label in enumerate([LCL, ARG, THIS, THAT], 1):
             commands += [
                 '@{}'.format(label),
@@ -394,14 +395,15 @@ class VMTranslator:
             'M=D',
         ]
 
-        self.parse_goto_command(func)
+        # transfer control to the function
+        commands += self.parse_goto_command(func)
 
         # make return address label
         commands += [
             '({})'.format(retAddr),
         ]
 
-        self.outputs += commands
+        return commands
 
     def parse_return_command(self):
         commands = [
@@ -433,7 +435,7 @@ class VMTranslator:
         ]
 
         # pop argument 0
-        self.parse_pop_command(0, SEG_ARGUMENT)
+        commands += self.parse_pop_command(0, SEG_ARGUMENT)
 
         commands += [
             '@{}'.format(ARG),
@@ -462,7 +464,7 @@ class VMTranslator:
 
         self.current_func = ''
         self.unique_frame_id += 1
-        self.outputs += commands
+        return commands
 
     def write(self, outputs, output_path):
         with open(output_path, 'w') as f:
