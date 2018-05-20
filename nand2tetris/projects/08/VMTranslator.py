@@ -26,6 +26,10 @@ class VMTranslator:
         self.outputs = []
 
     def load(self, filepath):
+        # reset only inputs and outputs.
+        self.lines = []
+        self.outputs = []
+
         idx = filepath.rfind('/')
         self.namespace = filepath[idx+1:-3]
 
@@ -504,6 +508,7 @@ if __name__ == '__main__':
     if not path.exists(filepath):
         filepath = path.join(path.dirname(path.dirname(__file__)), filepath)
 
+    translator = VMTranslator()
     # compiling all vm file in the dir if a dir is passed
     if path.isdir(filepath):
         if filepath.endswith ('/'):
@@ -525,9 +530,9 @@ if __name__ == '__main__':
             if vmfilepath[-3:] == '.vm' and vmfilepath not in vm_files:
                 vm_files.append(vmfilepath)
 
+
         asm_codes += translator.bootstrap()
         for f in vm_files:
-            translator = VMTranslator()
             translator.load(f)
             asm_codes += translator.translate()
 
@@ -535,7 +540,6 @@ if __name__ == '__main__':
         translator.write(asm_codes, output_path)
     # or just one vm file
     else:
-        translator = VMTranslator()
         translator.load(filepath)
         asm_codes = translator.translate()
         output_path = filepath.replace('vm', 'asm')
