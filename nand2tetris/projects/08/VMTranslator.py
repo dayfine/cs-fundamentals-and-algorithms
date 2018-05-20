@@ -16,22 +16,28 @@ MEMORY_SEGMENT_POINTERS = {
 }
 
 class VMTranslator:
-    STACK_BASE_ADDR = 256
-
     def __init__(self):
         self.lines = []
-        self.outputs = []
-        self.stack_address = self.STACK_BASE_ADDR
         self.unique_jump_id = 0
         self.namespace = ''
-        self.current_func = ''
         self.unique_return_id = 0
         self.unique_frame_id = 0
+        self.current_func = ''
+        self.outputs = []
+
+        # bootstrapping
+        self.outputs += [
+            '@256',
+            'D=A',
+            '@SP',
+            'M=D',
+        ]
+
+        self.outputs += self.parse_call_command('Sys.init', 0)
 
     def load(self, filepath):
         idx = filepath.rfind('/')
         self.namespace = filepath[idx+1:-3]
-        self.lines = []
 
         with open(filepath, 'r') as f:
             for line in f:
@@ -51,7 +57,7 @@ class VMTranslator:
 
         if len(tokens) == 1 and tokens[0] != 'return':
             commands = self.parse_operator_command(tokens[0])
-        if len(tokens) == 1 and tokens[0] == 'return':
+        elif len(tokens) == 1 and tokens[0] == 'return':
             commands = self.parse_return_command()
         elif tokens[0] == 'push':
             _, segment, arg = tokens
@@ -74,6 +80,7 @@ class VMTranslator:
         elif tokens[0] == 'call':
             _, func, num_args = tokens
             commands = self.parse_call_command(func, num_args)
+
         self.outputs += commands
 
     def parse_push_command(self, arg=None, segment=SEG_CONSTANT):
@@ -296,9 +303,14 @@ class VMTranslator:
 
         return commands
 
+    def _add_namespace_to_label(self, label):
+        has_namespace = '.' in label
+        if self.current_func and not has_namespace:
+            return '{}${}'.format(self.current_func, label)
+        return label
+
     def parse_label_command(self, label):
-        if self.current_func:
-            label = '{}${}'.format(self.current_func, label)
+        label = self._add_namespace_to_label(label)
 
         commands = [
             '// label {}'.format(label),
@@ -308,8 +320,7 @@ class VMTranslator:
         return commands
 
     def parse_goto_command(self, label):
-        if self.current_func and not label.startswith(self.namespace):
-            label = '{}${}'.format(self.current_func, label)
+        label = self._add_namespace_to_label(label)
 
         commands = [
             '// goto {}'.format(label),
@@ -320,12 +331,13 @@ class VMTranslator:
         return commands
 
     def parse_if_command(self, label):
+        label = self._add_namespace_to_label(label)
+
         self.outputs += [
             '// if-goto {}'.format(label),
         ]
-        self.parse_pop_command(0, SEG_TEMP)
 
-        commands = [
+        commands = self.parse_pop_command(0, SEG_TEMP) + [
             '@5', # temp segment base
             'D=M',
             '@{}'.format(label),
@@ -428,6 +440,8 @@ class VMTranslator:
         THIS = MEMORY_SEGMENT_POINTERS['this']
         THAT = MEMORY_SEGMENT_POINTERS['that']
 
+        # all the return command in the same function shares the
+        # same parent frame and return address
         endFrame = '{}$endFrame.{}'.format(self.current_func, self.unique_frame_id)
         # note this is different from the return address in call command
         retAddr = '{}$retAddr.{}'.format(self.current_func, self.unique_frame_id)
@@ -476,7 +490,6 @@ class VMTranslator:
             '0;JMP',
         ]
 
-        self.current_func = ''
         self.unique_frame_id += 1
         return commands
 
@@ -494,21 +507,33 @@ if __name__ == '__main__':
         filepath = path.join(path.dirname(path.dirname(__file__)), filepath)
 
     translator = VMTranslator()
-
     # compiling all vm file in the dir if a dir is passed
     if path.isdir(filepath):
         asm_codes = []
-        vm_files = [path.join(filepath, file)
-                    for file in listdir(filepath)
-                    if file[-3:] == '.vm']
+        vm_files = []
+
+        syspath = path.join(filepath, 'Sys.vm')
+        if path.exists(syspath):
+            vm_files.append(syspath)
+
+        mainpath = path.join(filepath, 'Main.vm')
+        if path.exists(mainpath):
+            vm_files.append(mainpath)
+
+        for file in listdir(filepath):
+            vmfilepath = path.join(filepath, file)
+            if vmfilepath[-3:] == '.vm' and vmfilepath not in vm_files:
+                vm_files.append(vmfilepath)
 
         for f in vm_files:
             translator.load(f)
-            asm_codes += translator.translate()
+        asm_codes += translator.translate()
+
         output_path = path.join(filepath, '{}.asm'.format(path.basename(filepath)))
         translator.write(asm_codes, output_path)
     # or just one vm file
     else:
+
         translator.load(filepath)
         asm_codes = translator.translate()
         output_path = filepath.replace('vm', 'asm')
