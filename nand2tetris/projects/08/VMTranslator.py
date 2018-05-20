@@ -339,6 +339,19 @@ class VMTranslator:
             '// function {} {}'.format(func, num_local_var),
             '({})'.format(func),  # call command will come to this label
         ]
+        # initiate all local vars as zero
+        for i in range(int(num_local_var)):
+            commands += self.parse_push_command(0, SEG_CONSTANT)
+            commands += self.parse_pop_command(i, SEG_LOCAL)
+
+        # point stack
+        commands += [
+            '@{}'.format(num_local_var),
+            'D=A',
+            '@SP',
+            'M=M+D',
+        ]
+
         self.current_func = func
         return commands
 
@@ -415,22 +428,22 @@ class VMTranslator:
         THIS = MEMORY_SEGMENT_POINTERS['this']
         THAT = MEMORY_SEGMENT_POINTERS['that']
 
-        endFrameCmd = '@{}$endFrame.{}'.format(self.current_func, self.unique_frame_id)
+        endFrame = '{}$endFrame.{}'.format(self.current_func, self.unique_frame_id)
         # note this is different from the return address in call command
-        retAddrCmd = '@{}$retAddr.{}'.format(self.current_func, self.unique_frame_id)
+        retAddr = '{}$retAddr.{}'.format(self.current_func, self.unique_frame_id)
 
         # assign top of the stack to arg0, and reset
         commands += [
             '@{}'.format(LCL),
             'D=M',
-            endFrameCmd,
+            '@{}'.format(endFrame),
             'M=D',
             '@5',
             'D=A',
-            endFrameCmd,
-            'A=M-D',  # this is the return address, save it somewhere
-            'D=M',
-            retAddrCmd,
+            '@{}'.format(endFrame),
+            'A=M-D', # go to the variable that holds return address
+            'D=M', # this is the return address, save it somewhere
+            '@{}'.format(retAddr),
             'M=D',
         ]
 
@@ -447,7 +460,7 @@ class VMTranslator:
         # restore caller frame
         for idx, label in enumerate([THAT, THIS, ARG, LCL], 1):
             commands += [
-                endFrameCmd,
+                '@{}'.format(endFrame),
                 'D=M',
                 '@{}'.format(idx),
                 'A=D-A',
@@ -458,8 +471,9 @@ class VMTranslator:
 
         # goto return address
         commands += [
-            retAddrCmd,
+            '@{}'.format(retAddr),
             'A=M',
+            '0;JMP',
         ]
 
         self.current_func = ''
