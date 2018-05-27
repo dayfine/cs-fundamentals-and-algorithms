@@ -2,7 +2,8 @@
 Recursively checks all links to pages hosted by the same site. Supports
 multithreaded execution.
 
-Usage: python3 crawler.py [-p <num_threads>] [-t <timeout>] <site>
+Usage: python my_crawler.py [-p <num_threads>] [-t <timeout>] <site>
+Note; do not include trailing slash in site url
 
 The -p flag enables multithreading, with the given number of threads.
 The -t flag specifies the request timeout in seconds; default is 5.
@@ -15,7 +16,6 @@ The crawler does not spoof its user agent, so links from sites such as Google
 and Wikipedia, which reject crawlers, are reported as bad.
 """
 
-from urllib.request import urlopen
 from urllib.parse import urlparse
 from urllib.error import HTTPError, URLError
 from html.parser import HTMLParser
@@ -24,7 +24,8 @@ from queue import Queue
 from time import time
 
 import inspect
-import socket
+import requests
+from requests.exceptions import ConnectionError
 import sys
 
 default_timeout = 5
@@ -32,7 +33,6 @@ default_timeout = 5
 #################
 # URL Functions #
 #################
-
 def make_url(url, base):
     """Construct a full URL from the given URL fragment and base URL. Filters
     out non-http links.
@@ -42,11 +42,13 @@ def make_url(url, base):
     >>> make_url('http://espn.com', 'http://mlb.com/')
     'http://espn.com'
     >>> make_url('ftp://some-site.com', 'http://mlb.com/')
+    None
     """
     parsed = urlparse(url)
     scheme = parsed.scheme if parsed.scheme else 'http'
     netloc = parsed.netloc
-    if scheme != 'http':
+
+    if scheme != 'http' and scheme != 'https':
         return None
     elif not netloc:
         if not parsed.path:
@@ -63,6 +65,7 @@ def simplify_url(url):
     >>> simplify_url('http://inst.eecs.berkeley.edu/~cs61a/./sp13/projects/../..')
     'http://inst.eecs.berkeley.edu/~cs61a'
     """
+
     pieces = url.split('/')
     result = [pieces[0] + '/']
     for i in range(1, len(pieces)):
@@ -71,6 +74,7 @@ def simplify_url(url):
             result.pop()
         elif piece and piece != '.':
             result.append(piece)
+
     return '/'.join(result)
 
 def get_base(url):
@@ -178,22 +182,21 @@ class Crawler(object):
             return self.unsynchronized_already_seen(url)
 
     def queue_url(self, url, base, parent):
-        """Queue the givn URL for reading, if it hasn't been seen before."""
-        url = make_url(url, base) # construct and/or simplify the URL
+        url = make_url(url, base)
         if self.already_seen(url):
             return
 
-        # Only read the page if it is on this site and is HTML
         read = url.startswith(self.site)
+        print(url, self.site, read)
         index = url.rindex('/')
         page = url[index+1:]
         index = page.rfind('.')
         if index >= 0:
             ext = page[index+1:]
-            if ext != 'html' and ext != 'htm':
+            # if there is an extension, and the file type is not html, pass
+            if ext and ext != 'html' and ext != 'htm':
                 read = False
 
-        # Safely queue a new task to process the URL
         self.put_task((url, parent, read))
 
     def handle_url(self, url_info, parser):
@@ -204,8 +207,8 @@ class Crawler(object):
 
         # Request, but don't read the page
         try:
-            opened = urlopen(url, timeout=self.timeout)
-        except (HTTPError, URLError, socket.timeout) as e:
+            response = requests.get(url, timeout=self.timeout)
+        except (HTTPError, URLError, ConnectionError) as e:
             print('bad link in {0}: {1}'.format(parent, url))
             print('error:', e)
             return
@@ -214,9 +217,9 @@ class Crawler(object):
             return
 
         # Now read the page and send data to the parser
-        parser.reset_with_page(opened.geturl())
+        parser.reset_with_page(response.url)
         try:
-            data = opened.read().decode()
+            data = str(response.content)
             parser.feed(data)
         except Exception as e:
             print('error while reading {0}: {1}'.format(url, e))
@@ -293,7 +296,7 @@ def run(*args):
             num_threads = int(args[i+1])
         elif args[i] == '-t':
             timeout = int(args[i+1])
-        elif args[i].startswith('http://'):
+        elif args[i].startswith('http://') or args[i].startswith('https://'):
             if url:
                 print('only one URL may be provided', file=sys.stderr)
                 return
