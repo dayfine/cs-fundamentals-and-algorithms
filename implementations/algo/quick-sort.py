@@ -1,18 +1,19 @@
 def partition(arr, lo, hi):
     pivot = arr[lo]
-    i, j = lo, hi
+    i, j = lo + 1, hi
 
-    while i < j:
-        while i <= hi and arr[i] < pivot:
+    while i <= j:
+        while arr[i] <= pivot:
             i += 1
-        while arr[j] > pivot:
+        while arr[j] >= pivot:
             j -= 1
-        if i < j:
+        if i <= j:
             arr[i], arr[j] = arr[j], arr[i]
+            i += 1
+            j -= 1
 
     arr[lo] = arr[j]
     arr[j] = pivot
-
     return j
 
 def quick_sort(arr, lo, hi):
