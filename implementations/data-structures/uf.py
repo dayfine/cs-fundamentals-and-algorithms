@@ -21,7 +21,7 @@ class UnionFind():
     def union(self, p, q):
         P, Q = self.find(p), self.find(q)
 
-        if P==Q:
+        if P == Q:
             return
 
         if self._size(P)<self._size[Q]:
