@@ -58,4 +58,9 @@ class HashTable():
         self.put(key, val)
 
     def __delitem__(self, key):
+        """
+        This can get tricky, especially with open addressing.
+        i.e. if a hole opens up in the chain of references, it can be impossible
+        to find the value of the given key
+        """
         pass
