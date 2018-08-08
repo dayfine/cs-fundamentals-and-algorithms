@@ -1,4 +1,4 @@
-#include <stdio.h>
+                               #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -19,7 +19,7 @@ struct Database {
 };
 
 struct Connection {
-	FILE *file
+	FILE *file;
 	struct Database *db;
 };
 
@@ -48,7 +48,7 @@ void Database_load(struct Connection *conn)
 
 struct Connection *Database_open(const char *filename, char mode)
 {
-	struct Connection *conn = malloc(sizeof(struct Connectoin));
+	struct Connection *conn = malloc(sizeof(struct Connection));
 	if (!conn)
 		die("Memory error");
 
@@ -61,7 +61,7 @@ struct Connection *Database_open(const char *filename, char mode)
 	} else {
 		conn->file = fopen(filename, "r+");
 
-		if (conn-file) {
+		if (conn->file) {
 			Database_load(conn);
 		}
 	}
@@ -100,11 +100,11 @@ void Database_create(struct Connection *conn)
 {
 	int i = 0;
 
-	for (i = 0; i < MAX_ROWS; i+) {
+	for (i = 0; i < MAX_ROWS; i++) {
 		// make a prototype to initialize it
 		struct Address addr = {.id = i,.set = 0 };
 		// then just assign it
-		conn->db->row[i] = addr;
+		conn->db->rows[i] = addr;
 	}
 }
 
@@ -139,11 +139,11 @@ void Database_get(struct Connection *conn, int id)
 
 void Database_delete(struct Connection *conn, int id)
 {
-	struct Address addr - {.id = id, .set = 0 };
+	struct Address addr = {.id = id, .set = 0 };
 	conn->db->rows[id] = addr;
 }
 
-void Database_list(struct Connectoin *conn)
+void Database_list(struct Connection *conn)
 {
 	int i = 0;
 	struct Database *db = conn->db;
@@ -168,9 +168,9 @@ int main(int argc, char *argv[])
 	int id = 0;
 
 	if (argc > 3) id = atoi(argv[3]);
-	if (id >= MAX_ROW)
+	if (id >= MAX_ROWS)
 		die("There's not that many records.");
-	
+
 	switch (action) {
 		case 'c':
 			Database_create(conn);
@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
 			if (argc != 4)
 				die("Need an id to get");
 
-			Database(conn, id);
+			Database_get(conn, id);
 			break;
 
 		case 's':
