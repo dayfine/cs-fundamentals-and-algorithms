@@ -1,3 +1,5 @@
 *.dSYM
 ex*
 !ex*.c
+*.o
+*.so
