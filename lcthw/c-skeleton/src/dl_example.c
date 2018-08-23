@@ -39,7 +39,7 @@ int lowercase(const char *msg)
 	return 0;
 }
 
-int fail_on_purpose(const char *msg)
+int fail_on_purpose(void)
 {
 	return 1;
 }
