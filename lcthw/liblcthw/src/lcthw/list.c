@@ -6,7 +6,7 @@ List *List_create()
 	return calloc(1, sizeof(List));
 }
 
-void List_destory(List *list)
+void List_destroy(List *list)
 {
 	LIST_FOREACH(list, first, next, cur) {
 		if (cur->prev) {
@@ -28,7 +28,7 @@ void List_clear(List *list)
 void List_clear_destroy(List *list)
 {
 	List_clear(list);
-	List_destory(list);
+	List_destroy(list);
 }
 
 void List_push(List *list, void *value)
