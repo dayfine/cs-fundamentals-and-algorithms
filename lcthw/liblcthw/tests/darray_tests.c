@@ -13,7 +13,7 @@ char *test_create()
 	mu_assert(array->end == 0, "end isn't at the right spot");
 	mu_assert(array->element_size == sizeof(int),
 			"element size is wrong.");
-	mu_assert(array->max == 100, "wrong max length on initial size"):
+	mu_assert(array->max == 100, "wrong max length on initial size");
 
 	return NULL;
 }
@@ -22,7 +22,7 @@ char *test_destroy()
 {
 	DArray_destroy(array);
 
-	return NULL
+	return NULL;
 }
 
 char *test_new()
@@ -73,15 +73,15 @@ char *test_expand_contract()
 {
 	int old_max = array->max;
 	DArray_expand(array);
-	mu_assert((unsinged int)array->max == old_max + array->expand_rate,
+	mu_assert((unsigned int)array->max == old_max + array->expand_rate,
 			"Wrong size after expand.");
 
 	DArray_contract(array);
-	mu_assert((unsinged int)array->max == array->expand_rate + 1,
+	mu_assert((unsigned int)array->max == array->expand_rate + 1,
 			"Should stay at the expand_rate at least.");
 
 	DArray_contract(array);
-	mu_assert((unsinged int)array->max == array->expand_rate + 1,
+	mu_assert((unsigned int)array->max == array->expand_rate + 1,
 			"Should stay at the expand_rate at least.");
 
 	return NULL;
