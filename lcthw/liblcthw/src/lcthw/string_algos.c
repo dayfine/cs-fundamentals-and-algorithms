@@ -1,9 +1,10 @@
 #include <lcthw/string_algos.h>
 #include <limits.h>
 
+
 static inline void String_setup_skip_chars(size_t *skip_chars,
 	const unsigned char *needle,
-	sszie_t nlen);
+	ssize_t nlen)
 {
 	size_t i = 0;
 	size_t last = nlen - 1;
@@ -18,11 +19,11 @@ static inline void String_setup_skip_chars(size_t *skip_chars,
 }
 
 static inline const unsigned char *String_base_search(const unsigned
-	char *heystatck,
-	sszie_t hlen,
+	char *haystack,
+	ssize_t hlen,
 	const unsigned
 	char *needle,
-	ssize_t nlen,
+	size_t nlen,
 	size_t *
 	skip_chars)
 {
@@ -60,10 +61,10 @@ int String_find(bstring in, bstring what)
 	ssize_t nlen = blength(what);
 	size_t skip_chars[UCHAR_MAX + 1] = { 0 };
 
-	String_setup_skip_chars(skip, needle, nlen);
+	String_setup_skip_chars(skip_chars, needle, nlen);
 
 	found = String_base_search(haystack, hlen,
-		needle, nlen, skip);
+		needle, nlen, skip_chars);
 
 	return found != NULL ? found - haystack : -1;
 }
@@ -110,7 +111,7 @@ int StringScanner_scan(StringScanner *scan, bstring tofind)
 		return -1;
 	}
 
-	if ((const unsigned char *)bdata(tofind) != scan->heln) {
+	if ((const unsigned char *)bdata(tofind) != scan->hlen) {
 		StringScanner_set_needle(scan, tofind);
 	}
 
@@ -124,7 +125,7 @@ int StringScanner_scan(StringScanner *scan, bstring tofind)
 		scan->hlen -= found_at - scan->nlen;
 	} else {
 		// done, reset the setup
-		StringScanner_reset(scan)l
+		StringScanner_reset(scan);
 		found_at = -1;
 	}
 
