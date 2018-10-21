@@ -1,0 +1,16 @@
+class Main {
+   function void main() {
+      var String input;
+      var int result;
+      var Eval evaluator;
+
+      let input = Keyboard.readLine("Enter math expr:");
+      let evaluator = Eval.new();
+      let result = evaluator.evaluate(input);
+
+      do Output.printString("Result:");
+      do Output.printInt(result);
+      do evaluator.dispose();
+      return;
+   }
+}

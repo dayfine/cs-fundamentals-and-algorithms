@@ -1,0 +1,104 @@
+/**
+   The Eval class takes a string input that represent a math expresson,
+   and evaluate its value. i.e. it works the same as the Unix `bc` command
+
+   NOTE: % is not supported, as it is not a valid symbol in Jack
+*/
+class Eval {
+   field String expr;
+   field int index;
+
+   constructor Eval new() {
+      return this;
+   }
+
+   method void dispose() {
+      do Memory.deAlloc(this);
+      return;
+   }
+
+   /** public API */
+   method int evaluate(String input) {
+      let expr = input;
+      let index = 0;
+      return handleLowOrderOp();
+   }
+
+   /** internal computation methods */
+   method char peekToken() {
+      if ((index = expr.length()) | (index > expr.length())) {
+         return 0;
+      }
+      return expr.charAt(index);
+   }
+
+   method char consumeToken() {
+      var char c;
+      let c = peekToken();
+      let index = index + 1;
+      return c;
+   }
+
+   method bool isNumeric(char c) {
+      // '0' - 1 and '9' + 1
+      return (c > 47) & (c < 58);
+   }
+
+   method int getNumber() {
+      var int res;
+      let res = 0;
+      while (isNumeric(peekToken())) {
+         let res = res * 10 + (consumeToken() - 48); // '0'
+      }
+      return res;
+   }
+
+   method int handleNumAndGroup() {
+      var int res;
+      if (isNumeric(peekToken())) {
+         return getNumber();
+      }
+      if (peekToken() = 40) { // '('
+         do consumeToken();
+         let res = handleLowOrderOp();
+         do consumeToken();
+         return res;
+      }
+      if (peekToken() = 45) { // '-'
+         do consumeToken();
+         return (-handleNumAndGroup());
+      }
+      return 0;
+   }
+
+   method int handleHighOrderOp() {
+      var int res;
+      var char op;
+      let res = handleNumAndGroup();
+      while ((peekToken() = 47) | (peekToken() = 42)) {
+         let op = consumeToken();
+         if (op = 47) { // '/'
+            let res = res / handleHighOrderOp();
+         }
+         if (op = 42) { // '*'
+            let res = res * handleHighOrderOp();
+         }
+      }
+      return res;
+   }
+
+   method int handleLowOrderOp() {
+      var int res;
+      var char op;
+      let res = handleHighOrderOp();
+      while ((peekToken() = 43) | (peekToken() = 45)) {
+         let op = consumeToken();
+         if (op = 43) { // +
+            let res = res + handleHighOrderOp();
+         } else {
+            let res = res - handleHighOrderOp();
+         }
+      }
+      return res;
+   }
+}
