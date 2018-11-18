@@ -38,6 +38,8 @@ OPERATORS = {
 
 UNARY_OPS = {'-', '~'}
 
+BUILT_IN_TYPES = {'int', 'char', 'boolean'}
+
 # TOKEN TYPES
 T_KEYWORD = 'keyword'
 T_SYMBOL = 'symbol'
@@ -149,51 +151,84 @@ class Parser:
 		elif token.type == T_KEYWORD:
 			if token.value = 'if':
 				self.idx += 1
-				return self.compile_if_stmt()
+				return self.parse_if_stmt()
 		else:
 			pass
 
-	def var_declaration(self):
+	def parse_class(self):
+		""" class: 'class' className '{' classVarDec* subroutineDec* '}' """
+		body = []
+		return ASTNode('class', body)
+
+	def parse_class_var_decl(self):
+		""" classVarDec: ('static'|'field') type varName (',' varName)* ';' """
+		body = []
+		return ASTNode('classVarDec', body)
+
+	def parse_type(self):
+		""" type: 'int' | 'char' | 'boolean' | className """
 		pass
 
-	def compile_stmts(self):
+	def parse_subroutine_decl(self):
+		""" subroutineDec: ('constructor'|'function'|'method') ('void'|type)
+				subroutineName '(' paramaterList ')' subroutineBody
+		"""
+		body = []
+		return ASTNode('subroutineDec', body)
+
+	def parse_parameter_list(self):
+		""" paramaterList: ((type varName) (',' type varName)*)? """
+		body = []
+		return ASTNode('paramaterList', body)
+
+	def parse_subroutine_body(self):
+		""" subroutineBody: '{' varDec* statements '}' """
+		body = []
+		return ASTNode('subroutineBody', body)
+
+	def parse_var_decl(self):
+		""" varDec: 'var' type varName (',' varName)* ';' """
+		body = []
+		return ASTNode('varDec', body)
+
+	def parse_stmts(self):
 		""" statements: statement* """
 		stmts = []
 		t = self.peek_token()
-		while not (self.peek_token().type == T_SYMBOL && self.peek_token().value == '}'):
+		while not (self.peek_token().type == T_SYMBOL and self.peek_token().value == '}'):
 			stmts.append(self.compie_stmt())
 		return ASTNode('statements', stmts)
 
-	def compie_stmt(self):
+	def parse_stmt(self):
 		""" statement: letStatement | ifStatement | whileStatement |
 				doStatement | returnStatement
 		"""
 		t = self.peek_token()
 		assert(t.type == T_KEYWORD)
 		if t.value = 'if':
-			return self.compile_if_stmt()
+			return self.parse_if_stmt()
 		elif t.value = 'while':
-			return self.compile_while_stmt()
+			return self.parse_while_stmt()
 		elif t.value = 'let':
-			return self.compile_let_stmt()
+			return self.parse_let_stmt()
 		elif t.value = 'do':
-			return self.compile_do_stmt()
+			return self.parse_do_stmt()
 		elif t.value = 'return':
-			return self.compile_return_stmt()
+			return self.parse_return_stmt()
 		else:
 			raise Exception('Not a statement!')
 
-	def compile_if_stmt(self):
+	def parse_if_stmt(self):
 		""" ifStatement: 'if' '(' expression ')' '{' statements '}'
 				('else' '{' statements '}')?
 		"""
 		body = [
 			self.check_and_consume(T_KEYWORD, 'if'),
 			self.check_and_consume(T_SYMBOL, '('),
-			self.compile_expr(),
+			self.parse_expr(),
 			self.check_and_consume(T_SYMBOL, ')'),
 			self.check_and_consume(T_SYMBOL, '{'),
-			self.compile_stmts(),
+			self.parse_stmts(),
 			self.check_and_consume(T_SYMBOL, '}'),
 		]
 		t = self.peek_token()
@@ -201,25 +236,25 @@ class Parser:
 			body.extend([
 				self.get_token(),
 				self.check_and_consume(T_SYMBOL, '{'),
-				self.compile_stmts(),
+				self.parse_stmts(),
 				self.check_and_consume(T_SYMBOL, '}'),
 			])
 		return ASTNode('ifStatement', body)
 
-	def compile_while_stmt(self):
+	def parse_while_stmt(self):
 		""" whileStatement: 'while' '(' expression ')' '{' statements '}' """
 		body = [
 			self.check_and_consume(T_KEYWORD, 'while'),
 			self.check_and_consume(T_SYMBOL, '('),
-			self.compile_expr(),
+			self.parse_expr(),
 			self.check_and_consume(T_SYMBOL, ')'),
 			self.check_and_consume(T_SYMBOL, '{'),
-			self.compile_stmts(),
+			self.parse_stmts(),
 			self.check_and_consume(T_SYMBOL, '}'),
 		]
 		return ASTNode('whileStatement', body)
 
-	def compile_let_stmt(self):
+	def parse_let_stmt(self):
 		""" letStatement: 'let' varName('[' expression ']')? '=' expression ';'
 		"""
 		body = [
@@ -231,52 +266,54 @@ class Parser:
 		if t.type == T_SYMBOL and t.value == '[':
 			body.extend([
 				self.get_token(),
-				self.compile_expr(),
+				self.parse_expr(),
 				self.check_and_consume(T_SYMBOL, ']'),
 			])
 
 		body.extend([
 			self.check_and_consume(T_SYMBOL, '='),
-			self.compile_expr(),
+			self.parse_expr(),
 			self.check_and_consume(T_SYMBOL, ';'),
 		])
 		return ASTNode('letStatement', body)
 
-	def compile_do_stmt(self):
+	def parse_do_stmt(self):
 		""" doStatement: 'do' subroutineCall ';' """
 		body = [
 			self.check_and_consume(T_KEYWORD, 'return'),
-			self.compile_subroutine_call(),
+			self.parse_subroutine_call(),
 			self.check_and_consume(T_SYMBOL, ';'),
 		]
 		return ASTNode('doStatement', body)
 
-
-	def compile_return_stmt(self):
+	def parse_return_stmt(self):
 		""" returnStatement: 'return' expression? ';' """
 		body = []
 		body.append(self.check_and_consume(T_KEYWORD, 'return'))
 		if not (t.type == T_SYMBOL and t.value == ';'):
-			body.append(self.compile_expr())
+			body.append(self.parse_expr())
 		body.append(self.check_and_consume(T_SYMBOL, ';'))
 		return ASTNode('returnStatement', body)
 
-	def compile_expr_list(self):
+	def parse_expr_list(self):
 		""" expresionList: (expresion (',' expresion)*)? """
 		pass
 
-	def compile_expr(self):
+	def parse_expr(self):
 		""" expresion: term (op term)? """
 		body = []
-		body.append(compile_term());
+		body.append(parse_term());
 		token = self.peek_token()
 		if token.value in OPERATORS:
 			body.append(token)
-			body.append(compile_term());
+			body.append(parse_term());
 		return ASTNode('expression', token)
 
-	def compile_term(self):
-		""" term: """
+	def parse_term(self):
+		""" term: integerConstant | stringConstant | keywordConstant | varName |
+				varName'[' expression ']' | subroutineCall | '(' expression ')'
+				| unaryOp term
+		"""
 		t = self.peek_token()
 		# constants
 		if (t.type == T_STRING_CONSTANT or
@@ -286,8 +323,10 @@ class Parser:
 		# TODO: ... many other cases
 		raise Exception('Term should be an identifier or a constant')
 
-	def compile_subroutine_call(self):
-		""" subroutineCall: """
+	def parse_subroutine_call(self):
+		""" subroutineCall: subroutineName '(' expressionList ')' |
+				( className | varName )'.' subroutineName '(' expressionList ')'
+		"""
 		body = []
 		return ASTNode('subroutineCall', token)
 
