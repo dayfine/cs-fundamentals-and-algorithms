@@ -1,31 +1,38 @@
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 
+# KEYWORD CONSTANTS
+K_CLASS = 'class'
+K_CONSTRUCTOR = 'constructor'
+K_FUNCTION = 'function'
+K_METHOD = 'method'
+K_FIELD	= 'field'
+K_STATIC	= 'static'
+K_VAR	= 'var'
+K_INT	= 'int'
+K_CHAR	= 'char'
+K_BOOLEAN	= 'boolean'
+K_VOID	= 'void'
+K_TRUE	= 'true'
+K_FALSE	= 'false'
+K_NULL	= 'null'
+K_THIS	= 'this'
+K_LET	= 'let'
+K_DO	= 'do'
+K_IF	= 'if'
+K_ELSE	= 'else'
+K_WHILE	= 'while'
+K_RETURN  = 'return'
 
 KEYWORDS = {
-	'class',
-	'constructor',
-	'function',
-	'method',
-	'field',
-	'static',
-	'var',
-	'int',
-	'char',
-	'boolean',
-	'void',
-	'true',
-	'false',
-	'null',
-	'this',
-	'let',
-	'do',
-	'if',
-	'else',
-	'while',
-	'return',
+	K_CLASS, K_CONSTRUCTOR, K_FUNCTION, K_METHOD, K_FIELD, K_STATIC, K_VAR,
+	K_INT, K_CHAR, K_BOOLEAN, K_VOID, K_TRUE, K_FALSE, K_NULL, K_THIS, K_LET,
+	K_DO, K_IF, K_ELSE, K_WHILE, K_RETURN,
 }
 
-KEYWORD_CONSTANTS = {'true', 'false', 'null', 'this'}
+KEYWORD_CONSTANTS = {K_TRUE, K_FALSE, K_NULL, K_THIS}
+BUILT_IN_TYPES = {K_INT, K_CHAR, K_BOOLEAN}
+CLASS_VAR_KEYWORDS = {K_FIELD, K_STATIC}
+SUBROUTINE_KEYWORDS = {K_CONSTRUCTOR, K_FUNCTION, K_METHOD}
 
 SYMBOLS = {
 	'{', '}', '(', ')', '[', ']', '.', ',', ';', '+', '-', '*', '/', '&',
@@ -38,8 +45,6 @@ OPERATORS = {
 
 UNARY_OPS = {'-', '~'}
 
-BUILT_IN_TYPES = {'int', 'char', 'boolean'}
-
 # TOKEN TYPES
 T_KEYWORD = 'keyword'
 T_SYMBOL = 'symbol'
@@ -49,6 +54,7 @@ T_IDENTIFIER = 'identifier'
 
 
 Token = namedtuple('Token', ['type', 'value'])
+
 
 class Tokenizer:
 	ESCAPE_MAP = {
@@ -111,11 +117,6 @@ class Tokenizer:
 		return escaped
 
 
-# class ASTNode:
-# 	def __init__(self, node_type, value, children=None):
-# 		self.type = node_type
-# 		self.value = value
-# 		self.children = children or []
 ASTNode = namedtuple('ASTNode', ['type', 'body'])
 
 
@@ -123,6 +124,9 @@ class Parser:
 	def __init__(self, tokens):
 		self.tokens = tokens
 		self.idx = 0
+		self.classNames = {}
+		self.varNamesByClass = {}
+		self.subroutineNamesByClass = {}
 
 	def get_token(self):
 		token = self.tokens[self.idx]
@@ -132,7 +136,7 @@ class Parser:
 	def peek_token(self):
 		return self.tokens[self.idx]
 
-	def check_and_consume(self, token_type=None, value=None):
+	def assert_and_consume(self, token_type=None, value=None):
 		t = self.peek_token()
 		if token_type is not None:
 			assert(t.type == token_type)
@@ -140,62 +144,131 @@ class Parser:
 			assert(t.value == value)
 		return self.get_token()
 
+	def check_symbol(self, value):
+		t = self.peek_token()
+		return t.type == T_SYMBOL and t.value == value
+
+	def check_keyword(self, value):
+		t = self.peek_token()
+		return t.type == T_KEYWORD and t.value == value
+
 	def walk(self):
-		token = self.peek_token()
-		if token.type == T_INTEGER_CONSTANT:
-			t = self.get_token()
-			return ASTNode(t.type, t.value)
-		elif token.tyep == T_STRING_CONSTANT:
-			self.idx += 1
-			return ASTNode(token.type, token.value)
-		elif token.type == T_KEYWORD:
-			if token.value = 'if':
-				self.idx += 1
-				return self.parse_if_stmt()
-		else:
-			pass
+		self.parse_class()
 
 	def parse_class(self):
 		""" class: 'class' className '{' classVarDec* subroutineDec* '}' """
-		body = []
+		body = [
+			self.assert_and_consume(T_KEYWORD, K_CLASS),
+			self.assert_and_consume(T_IDENTIFIER),
+			self.assert_and_consume(T_SYMBOL, '{'),
+		]
+		while self._next_is_class_var_decl():
+			body.append(self.parse_class_var_decl())
+		while self._next_is_subroutine_decl():
+			body.append(self.parse_subroutine_decl())
+		body.append(self.assert_and_consume(T_SYMBOL, '}'))
 		return ASTNode('class', body)
 
 	def parse_class_var_decl(self):
 		""" classVarDec: ('static'|'field') type varName (',' varName)* ';' """
-		body = []
+		body = [
+			self.get_token(),
+			self.parse_type(),
+			self.assert_and_consume(T_IDENTIFIER),
+		]
+		while (self.check_symbol(',')):
+			body.extend([
+				self.get_token(),
+				self.assert_and_consume(T_IDENTIFIER)
+			])
+		self.assert_and_consume(T_SYMBOL, ';'),
 		return ASTNode('classVarDec', body)
+
+	def _next_is_class_var_decl(self):
+		t = self.peek_token()
+		return t.type == T_KEYWORD and t.value in CLASS_VAR_KEYWORDS
 
 	def parse_type(self):
 		""" type: 'int' | 'char' | 'boolean' | className """
-		pass
+		if self._next_is_type():
+			return self.get_token()
+		raise TypeError('Not a type!')
+
+	def _next_is_type(self):
+		t = self.peek_token()
+		return (t.type == T_KEYWORD and t.value in BUILT_IN_TYPES)
+			or t.type == T_IDENTIFIER
 
 	def parse_subroutine_decl(self):
 		""" subroutineDec: ('constructor'|'function'|'method') ('void'|type)
 				subroutineName '(' paramaterList ')' subroutineBody
 		"""
-		body = []
+		body = [
+			self.get_token()
+		]
+		if self.check_keyword(K_VOID):
+			body.append(self.get_token())
+		else:
+			body.append(self.parse_type())
+		body.extend([
+			self.assert_and_consume(T_IDENTIFIER),
+			self.assert_and_consume(T_SYMBOL, '('),
+			self.parse_parameter_list(),
+			self.assert_and_consume(T_SYMBOL, ')'),
+			self.parse_subroutine_body(),
+		])
 		return ASTNode('subroutineDec', body)
+
+	def _next_is_subroutine_decl(self):
+		t = self.peek_token()
+		return t.type == T_KEYWORD and t.value in SUBROUTINE_KEYWORDS
 
 	def parse_parameter_list(self):
 		""" paramaterList: ((type varName) (',' type varName)*)? """
 		body = []
+		while self._next_is_type():
+			body.extend([
+				self.get_token(),
+				self.assert_and_consume(T_IDENTIFIER),
+			])
+			if self.check_symbol(','):
+				self.get_token()
+			else:
+				break
 		return ASTNode('paramaterList', body)
 
 	def parse_subroutine_body(self):
 		""" subroutineBody: '{' varDec* statements '}' """
-		body = []
+		body = [self.assert_and_consume(T_SYMBOL, '{')]
+		while self._next_is_var_decl():
+			body.append(self.parse_var_decl())
+		body.append(self.parse_stmts())
+		body.append(self.assert_and_consume(T_SYMBOL, '}'))
 		return ASTNode('subroutineBody', body)
 
 	def parse_var_decl(self):
 		""" varDec: 'var' type varName (',' varName)* ';' """
-		body = []
+		body = [
+			self.assert_and_consume(T_KEYWORD, K_VAR),
+			self.parse_type(),
+			self.assert_and_consume(T_IDENTIFIER),
+		]
+		while (self.check_symbol(',')):
+			body.extend([
+				self.get_token(),
+				self.assert_and_consume(T_IDENTIFIER)
+			])
+		self.assert_and_consume(T_SYMBOL, ';'),
 		return ASTNode('varDec', body)
+
+	def _next_is_var_decl(self):
+		t = self.peek_token()
+		return t.type == T_KEYWORD and t.value == K_VAR
 
 	def parse_stmts(self):
 		""" statements: statement* """
 		stmts = []
-		t = self.peek_token()
-		while not (self.peek_token().type == T_SYMBOL and self.peek_token().value == '}'):
+		while not (self.check_symbol('}')):
 			stmts.append(self.compie_stmt())
 		return ASTNode('statements', stmts)
 
@@ -205,15 +278,15 @@ class Parser:
 		"""
 		t = self.peek_token()
 		assert(t.type == T_KEYWORD)
-		if t.value = 'if':
+		if t.value = K_IF:
 			return self.parse_if_stmt()
-		elif t.value = 'while':
+		elif t.value = K_WHILE:
 			return self.parse_while_stmt()
-		elif t.value = 'let':
+		elif t.value = K_LET:
 			return self.parse_let_stmt()
-		elif t.value = 'do':
+		elif t.value = K_DO:
 			return self.parse_do_stmt()
-		elif t.value = 'return':
+		elif t.value = K_RETURN:
 			return self.parse_return_stmt()
 		else:
 			raise Exception('Not a statement!')
@@ -223,34 +296,33 @@ class Parser:
 				('else' '{' statements '}')?
 		"""
 		body = [
-			self.check_and_consume(T_KEYWORD, 'if'),
-			self.check_and_consume(T_SYMBOL, '('),
+			self.assert_and_consume(T_KEYWORD, K_IF),
+			self.assert_and_consume(T_SYMBOL, '('),
 			self.parse_expr(),
-			self.check_and_consume(T_SYMBOL, ')'),
-			self.check_and_consume(T_SYMBOL, '{'),
+			self.assert_and_consume(T_SYMBOL, ')'),
+			self.assert_and_consume(T_SYMBOL, '{'),
 			self.parse_stmts(),
-			self.check_and_consume(T_SYMBOL, '}'),
+			self.assert_and_consume(T_SYMBOL, '}'),
 		]
-		t = self.peek_token()
-		if t.type == T_KEYWORD and t.value == 'else':
+		if self.check_keyword(K_ELSE):
 			body.extend([
 				self.get_token(),
-				self.check_and_consume(T_SYMBOL, '{'),
+				self.assert_and_consume(T_SYMBOL, '{'),
 				self.parse_stmts(),
-				self.check_and_consume(T_SYMBOL, '}'),
+				self.assert_and_consume(T_SYMBOL, '}'),
 			])
 		return ASTNode('ifStatement', body)
 
 	def parse_while_stmt(self):
 		""" whileStatement: 'while' '(' expression ')' '{' statements '}' """
 		body = [
-			self.check_and_consume(T_KEYWORD, 'while'),
-			self.check_and_consume(T_SYMBOL, '('),
+			self.assert_and_consume(T_KEYWORD, K_WHILE),
+			self.assert_and_consume(T_SYMBOL, '('),
 			self.parse_expr(),
-			self.check_and_consume(T_SYMBOL, ')'),
-			self.check_and_consume(T_SYMBOL, '{'),
+			self.assert_and_consume(T_SYMBOL, ')'),
+			self.assert_and_consume(T_SYMBOL, '{'),
 			self.parse_stmts(),
-			self.check_and_consume(T_SYMBOL, '}'),
+			self.assert_and_consume(T_SYMBOL, '}'),
 		]
 		return ASTNode('whileStatement', body)
 
@@ -258,51 +330,50 @@ class Parser:
 		""" letStatement: 'let' varName('[' expression ']')? '=' expression ';'
 		"""
 		body = [
-			self.check_and_consume(T_KEYWORD, 'let'),
-			self.check_and_consume(T_IDENTIFIER),
+			self.assert_and_consume(T_KEYWORD, 'let'),
+			self.assert_and_consume(T_IDENTIFIER),
 		]
-
-		t = self.peek_token()
-		if t.type == T_SYMBOL and t.value == '[':
+		if self.check_symbol('['):
 			body.extend([
 				self.get_token(),
 				self.parse_expr(),
-				self.check_and_consume(T_SYMBOL, ']'),
+				self.assert_and_consume(T_SYMBOL, ']'),
 			])
-
 		body.extend([
-			self.check_and_consume(T_SYMBOL, '='),
+			self.assert_and_consume(T_SYMBOL, '='),
 			self.parse_expr(),
-			self.check_and_consume(T_SYMBOL, ';'),
+			self.assert_and_consume(T_SYMBOL, ';'),
 		])
 		return ASTNode('letStatement', body)
 
 	def parse_do_stmt(self):
 		""" doStatement: 'do' subroutineCall ';' """
 		body = [
-			self.check_and_consume(T_KEYWORD, 'return'),
+			self.assert_and_consume(T_KEYWORD, K_DO),
 			self.parse_subroutine_call(),
-			self.check_and_consume(T_SYMBOL, ';'),
+			self.assert_and_consume(T_SYMBOL, ';'),
 		]
 		return ASTNode('doStatement', body)
 
 	def parse_return_stmt(self):
 		""" returnStatement: 'return' expression? ';' """
 		body = []
-		body.append(self.check_and_consume(T_KEYWORD, 'return'))
-		if not (t.type == T_SYMBOL and t.value == ';'):
+		body.append(self.assert_and_consume(T_KEYWORD, K_RETURN))
+		if not (self.check_symbol(';')):
 			body.append(self.parse_expr())
-		body.append(self.check_and_consume(T_SYMBOL, ';'))
+		body.append(self.assert_and_consume(T_SYMBOL, ';'))
 		return ASTNode('returnStatement', body)
 
 	def parse_expr_list(self):
 		""" expresionList: (expresion (',' expresion)*)? """
+		body = []
+		# try catch here?
 		pass
 
 	def parse_expr(self):
 		""" expresion: term (op term)? """
-		body = []
-		body.append(parse_term());
+		# might need a try catch based on term
+		body = [self.parse_term()]
 		token = self.peek_token()
 		if token.value in OPERATORS:
 			body.append(token)
@@ -320,8 +391,9 @@ class Parser:
 			t.type == T_INTEGER_CONSTANT or
 			(t.type == T_KEYWORD and t.value in KEYWORD_CONSTANTS)):
 			return ASTNode('term', [self.get_token()])
+		elif
 		# TODO: ... many other cases
-		raise Exception('Term should be an identifier or a constant')
+		raise Exception('Not a term')
 
 	def parse_subroutine_call(self):
 		""" subroutineCall: subroutineName '(' expressionList ')' |
@@ -332,11 +404,11 @@ class Parser:
 
 
 class JackSyntaxAnalyzer:
-	def __init__(self, tokenizer):
+	def __init__(self, tokenizer, parser):
 		self.lines = []
 		self.outputs = []
-
 		self.tokenizer = tokenizer
+		self.parser = parser
 
 	def load(self, filepath):
 		self.lines = []
@@ -358,7 +430,6 @@ class JackSyntaxAnalyzer:
 				if not in_comment_block:
 					self.lines.append(l)
 
-
 	def analyze(self):
 		tokens = self.tokenizer.tokenize(' '.join(self.lines))
 		self.outputs = ["<{}> {} </{}>".format(t, v, t) for t,v in tokens]
@@ -370,7 +441,8 @@ class JackSyntaxAnalyzer:
 
 def SyntaxAnalyzerFactory():
 	tokenizer = Tokenizer()
-	return JackSyntaxAnalyzer(tokenizer)
+	parser = Parser()
+	return JackSyntaxAnalyzer(tokenizer, parser)
 
 
 def main():
