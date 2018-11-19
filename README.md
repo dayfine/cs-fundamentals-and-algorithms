@@ -1,3 +1,4 @@
-# ctci-js
+# kata
 
-JavaScript-based solution to CtCI problems with notes
+CS fundamentals and coding practices
+[Teach Yourself Computer Science](https://teachyourselfcs.com/)

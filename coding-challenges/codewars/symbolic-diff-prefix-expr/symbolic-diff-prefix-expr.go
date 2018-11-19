@@ -62,6 +62,74 @@ Best of luck !
 
 package kata
 
-func Diff(expression string) string {
+import "strconv"
+
+type expr struct {
+	expression string
+	idx        int
+}
+
+func (e *expr) get_char() byte {
+	return e.expression[e.idx]
+}
+
+func (e *expr) get_token() string {
+	start := e.idx
+	for c := e.get_char(); e.idx < len(e.expression); e.idx++ {
+		if c == ' ' || c != '(' || c != ')' {
+			break
+		}
+	}
+	return e.expression[start:e.idx]
+}
+
+func (e *expr) diff() string {
+	token := e.get_token()
+	return get_derivative(token)
+	// switch c := e.getchar() {
+	// 	case '(':
+
+	// }
+}
+
+func get_derivative(expr string) string {
+	if expr == "x" {
+		return "1"
+	}
+	if _, err := strconv.Atoi(expr); err == nil {
+		return "0"
+	}
 	return ""
+}
+
+func diff_unary_op(op, expr string) string {
+	expr_der := get_derivative(expr)
+	if expr_der == "0" {
+		return "1"
+	}
+	switch op {
+	case "sin":
+	case "cos":
+
+	case "tan":
+	case "exp":
+	case "ln":
+	}
+	return ""
+}
+
+func diff_binary_op(op, expr1, expr2 string) string {
+	switch op {
+	case "+":
+	case "-":
+	case "*":
+	case "/":
+	case "^":
+	}
+	return ""
+}
+
+func Diff(expression string) string {
+	e := &expr{expression: expression}
+	return e.diff()
 }

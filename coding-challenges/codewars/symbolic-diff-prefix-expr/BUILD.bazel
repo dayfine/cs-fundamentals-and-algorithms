@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["symbolic-diff-prefix-expr.go"],
+    importpath = "github.com/dayfine/kata/coding-challenges/codewars/symbolic-diff-prefix-expr",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["symbolic-diff-prefix-expr_test.go"],
+    embed = [":go_default_library"],
+)
